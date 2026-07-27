@@ -9,6 +9,18 @@ clicando num link de afiliado rastreado.
 Dono do projeto: gestor de tráfego pago, ~8 anos de Meta Ads. Ele entende de
 conversão e pixel melhor que a média — não explique marketing, explique código.
 
+## Status atual (jul/2026)
+
+Fase 1 **entregue e no ar** em `pirraiashop.com.br` (EasyPanel + VPS, repo
+`joaovictorpirraia/pirraiashop`, Supabase ref `wxrmjkxiuflvbqspauao`). Home, redirect
+`/r/[slug]` com contagem de clique, pixel (PageView/ViewContent + Lead via CAPI) e admin
+`/admin` (Basic Auth) funcionando. Pendências: emitir o SSL Let's Encrypt no EasyPanel;
+trocar a senha do admin; a vitrine ainda mostra 5 produtos falsos de seed (links de
+afiliado fajutos) — descartar e curar reais pelo `/admin` antes de mandar tráfego.
+
+Ingestão da Shopee **já construída e testada com mock** (`lib/ingest.ts` + `POST /api/ingest`),
+mas a chamada real à Open API só roda quando `SHOPEE_APP_ID`/`SHOPEE_SECRET` forem aprovados.
+
 ## Stack (não negociar, é a mesma de outro projeto dele)
 
 - Next.js 14, App Router, TypeScript
@@ -17,7 +29,7 @@ conversão e pixel melhor que a média — não explique marketing, explique có
 - Deploy: EasyPanel em VPS, via GitHub
 - Domínio: Hostinger
 
-## Escopo da fase 1 (é só isso — não construa as fases seguintes)
+## Escopo da fase 1 (entregue)
 
 1. **Home `/`** — a vitrine. Lê a view `vitrine` do Supabase. Bloco de destaque no
    topo, depois grade de produtos, filtro por categoria no client.
@@ -37,9 +49,15 @@ Fora de escopo agora: geração de criativos, publicação automática, camada d
 
 - `schema.sql` — rode no SQL Editor do Supabase antes de qualquer coisa. Já cria
   tabelas, RLS, a função `registrar_clique` e a view `vitrine`.
-- `lib/shopee.ts` — cliente da Shopee Affiliate Open API. **Ainda não dá pra testar**:
-  o acesso à Open API leva de 5 a 15 dias pra ser aprovado. Deixe o arquivo ali,
-  não construa a ingestão agora.
+- `lib/shopee.ts` — cliente da Shopee Affiliate Open API. A chamada real ainda **não foi
+  validada**: `SHOPEE_APP_ID`/`SECRET` não chegaram (aprovação leva 5–15 dias). No primeiro
+  teste com credencial real, é provável ajustar os campos da query GraphQL — a Shopee muda
+  o schema sem aviso (o próprio arquivo avisa isso).
+- `lib/ingest.ts` + `app/api/ingest/route.ts` — ingestão da Shopee. Normaliza ofertas e faz
+  upsert em `produtos`: novas caem como `novo` na fila de curadoria; re-ingest atualiza
+  preço/estoque mas **preserva** o status (não des-cura o que já foi aprovado). Endpoint
+  `POST /api/ingest?key=CRON_SECRET`, pra um cron externo (EasyPanel/cron-job.org) chamar.
+  Responde 503 enquanto as credenciais Shopee não existirem. Lógica testada com dados mock.
 
 ## Variáveis de ambiente
 
@@ -53,6 +71,7 @@ ADMIN_USER=
 ADMIN_PASSWORD=
 SHOPEE_APP_ID=                  # ainda não temos
 SHOPEE_SECRET=                  # ainda não temos
+CRON_SECRET=                    # secret que o cron manda pra chamar POST /api/ingest
 ```
 
 Use a anon key na home (RLS já libera só o que é público) e a service role apenas
@@ -102,5 +121,6 @@ por isso. Isso não é opcional — é exigência de CDC e da própria Shopee.
 5. Pixel
 6. Admin
 7. Deploy no EasyPanel
+8. Ingestão da Shopee (código pronto; ligar quando a Open API for aprovada)
 
 Depois de cada etapa, mostre o resultado antes de seguir.
