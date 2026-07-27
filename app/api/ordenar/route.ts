@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       duracao_ms: Date.now() - inicio,
     });
     revalidatePath("/");
-    return NextResponse.json(res);
+    return NextResponse.json({ ok: true, ...res });
   } catch (e) {
     const msg = (e as Error).message;
     await supabase.from("execucoes").insert({
@@ -41,6 +41,6 @@ export async function POST(request: NextRequest) {
       detalhe: { erro: msg },
       duracao_ms: Date.now() - inicio,
     });
-    return NextResponse.json({ erro: msg }, { status: 502 });
+    return NextResponse.json({ ok: false, erro: msg });
   }
 }
