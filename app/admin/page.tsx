@@ -80,9 +80,17 @@ export default async function Admin() {
             pirraia<span className="text-pirraia">.</span>{" "}
             <span className="text-fumo">admin</span>
           </span>
-          <span className="text-xs text-fumo">
-            {fila.length} na fila · {vitrine.length} na vitrine
-          </span>
+          <div className="flex items-center gap-3 text-xs text-fumo">
+            <span>
+              {fila.length} na fila · {vitrine.length} na vitrine
+            </span>
+            <a
+              href="/admin/metricas"
+              className="rounded-full bg-tinta px-3 py-1.5 font-bold text-white transition-colors hover:bg-pirraia"
+            >
+              Métricas
+            </a>
+          </div>
         </div>
       </header>
 
