@@ -1,0 +1,22 @@
+/node_modules
+/.next
+/out
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# env
+.env
+.env.local
+.env*.local
+
+# os
+.DS_Store
+Thumbs.db
+/.playwright-mcp
+
+# bundle original do upload, não faz parte do código
+files.zip
+
+# config local do Claude Code
+.claude/settings.local.json
