@@ -7,6 +7,7 @@ import {
   alternarDestaque,
   moverLink,
   removerDaVitrine,
+  reordenarPorPerformance,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -80,9 +81,23 @@ export default async function Admin() {
             pirraia<span className="text-pirraia">.</span>{" "}
             <span className="text-fumo">admin</span>
           </span>
-          <span className="text-xs text-fumo">
-            {fila.length} na fila · {vitrine.length} na vitrine
-          </span>
+          <div className="flex items-center gap-3 text-xs text-fumo">
+            <span>
+              {fila.length} na fila · {vitrine.length} na vitrine
+            </span>
+            <a
+              href="/admin/conteudo"
+              className="rounded-full border border-black/10 px-3 py-1.5 font-bold text-tinta transition-colors hover:bg-white"
+            >
+              Conteúdo
+            </a>
+            <a
+              href="/admin/metricas"
+              className="rounded-full bg-tinta px-3 py-1.5 font-bold text-white transition-colors hover:bg-pirraia"
+            >
+              Métricas
+            </a>
+          </div>
         </div>
       </header>
 
@@ -107,9 +122,22 @@ export default async function Admin() {
 
         {/* NA VITRINE */}
         <section>
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-fumo">
-            Na vitrine
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
+              Na vitrine
+            </h2>
+            {vitrine.length > 1 && (
+              <form action={reordenarPorPerformance}>
+                <button
+                  type="submit"
+                  className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
+                  title="Reordena por cliques + score da IA. O destaque continua no topo."
+                >
+                  Reordenar por performance
+                </button>
+              </form>
+            )}
+          </div>
           {vitrine.length === 0 ? (
             <p className="rounded-2xl bg-white p-6 text-center text-sm text-fumo shadow-carta">
               Nenhum produto publicado ainda. Cure algo da fila acima.

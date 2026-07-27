@@ -34,5 +34,9 @@ export function middleware(req: NextRequest) {
 
   if (u !== user || p !== pass) return negar();
 
-  return NextResponse.next();
+  // Marca a request como área de admin pra o layout raiz não injetar o pixel
+  // (não faz sentido poluir o pixel de conversão com PageView do painel).
+  const headers = new Headers(req.headers);
+  headers.set("x-pirraia-area", "admin");
+  return NextResponse.next({ request: { headers } });
 }
