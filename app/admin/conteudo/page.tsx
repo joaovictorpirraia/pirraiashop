@@ -67,7 +67,7 @@ export default async function Conteudo() {
           <p className="rounded-2xl bg-white p-8 text-center text-sm text-fumo shadow-carta">
             Nenhum rascunho na fila. Gere conteúdo chamando{" "}
             <code className="rounded bg-areia px-1">POST /api/gerar-conteudo</code> (precisa da
-            ANTHROPIC_API_KEY), e os rascunhos caem aqui pra aprovar.
+            OPENAI_API_KEY), e os rascunhos caem aqui pra aprovar.
           </p>
         ) : (
           rascunhos.map((p) => (

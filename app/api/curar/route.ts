@@ -12,7 +12,7 @@ export const maxDuration = 120;
  * afiliado, que é manual) — só faz a fila do /admin priorizar os melhores.
  *
  * Protegida por CRON_SECRET (mesmo esquema da ingestão). Responde 503 até
- * ANTHROPIC_API_KEY existir. A lógica de parsing + gravação é testada à parte.
+ * OPENAI_API_KEY existir. A lógica de parsing + gravação é testada à parte.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -22,9 +22,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
-      { erro: "ANTHROPIC_API_KEY ausente — curadoria por IA não configurada" },
+      { erro: "OPENAI_API_KEY ausente — curadoria por IA não configurada" },
       { status: 503 },
     );
   }

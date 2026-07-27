@@ -16,7 +16,7 @@ const CANAIS: Canal[] = ["instagram_feed", "instagram_story", "tiktok", "whatsap
 /**
  * Gera rascunhos de conteúdo (legenda/hashtags/roteiro) para produtos curados
  * que ainda não têm rascunho. Grava em posts como 'rascunho' — o admin aprova
- * antes de usar. Protegida por CRON_SECRET; 503 até ANTHROPIC_API_KEY existir.
+ * antes de usar. Protegida por CRON_SECRET; 503 até OPENAI_API_KEY existir.
  */
 export async function POST(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
   if (!secret || key !== secret) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json(
-      { erro: "ANTHROPIC_API_KEY ausente — geração de conteúdo não configurada" },
+      { erro: "OPENAI_API_KEY ausente — geração de conteúdo não configurada" },
       { status: 503 },
     );
   }
