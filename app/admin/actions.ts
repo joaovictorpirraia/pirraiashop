@@ -3,10 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
+import { reordenarVitrine } from "@/lib/ranking";
 
 function revalidar() {
   revalidatePath("/admin");
   revalidatePath("/"); // a home muda quando um produto entra/sai da vitrine
+}
+
+/** Reordena a vitrine por performance (cliques) + potencial (score_ia). */
+export async function reordenarPorPerformance() {
+  await reordenarVitrine(supabaseAdmin());
+  revalidar();
 }
 
 /**
