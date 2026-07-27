@@ -10,7 +10,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * angulo_ia/tags_ia da curadoria quando existem, pra dar contexto ao modelo.
  * Default gpt-4.1 (é a copy que vai pro post — vale um modelo melhor; volume baixo).
  */
-const MODELO = process.env.CONTEUDO_MODELO ?? "gpt-4.1";
+// || (não ??) de propósito: env var presente-mas-vazia deve cair no default
+const MODELO = process.env.CONTEUDO_MODELO || "gpt-4.1";
 
 export type Canal = "instagram_feed" | "instagram_story" | "tiktok" | "whatsapp";
 

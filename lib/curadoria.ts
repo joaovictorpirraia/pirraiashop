@@ -12,7 +12,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Modelo configurável por env — default gpt-4.1-mini (barato, dá conta de pontuar
  * + escrever o ângulo curto). Pra cortar mais, dá pra usar gpt-4.1-nano.
  */
-const MODELO = process.env.CURADORIA_MODELO ?? "gpt-4.1-mini";
+// || (não ??) de propósito: env var presente-mas-vazia deve cair no default
+const MODELO = process.env.CURADORIA_MODELO || "gpt-4.1-mini";
 
 export interface ProdutoParaScore {
   id: number;
