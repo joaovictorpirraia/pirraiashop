@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -8,12 +8,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * nota de potencial + gancho + tags, pra o admin curar os melhores primeiro
  * (a fila do /admin já ordena por score_ia desc).
  *
- * Config-gated: sem ANTHROPIC_API_KEY vira erro claro (a rota responde 503).
- * Modelo configurável por env — o default segue a recomendação da Anthropic,
- * mas pra scoring em massa dá pra baixar pra claude-sonnet-5 / claude-haiku-4-5
- * e cortar custo.
+ * Config-gated: sem OPENAI_API_KEY vira erro claro (a rota responde 503).
+ * Modelo configurável por env — default gpt-4.1-mini (barato, dá conta de pontuar
+ * + escrever o ângulo curto). Pra cortar mais, dá pra usar gpt-4.1-nano.
  */
-const MODELO = process.env.CURADORIA_MODELO ?? "claude-opus-5";
+const MODELO = process.env.CURADORIA_MODELO ?? "gpt-4.1-mini";
 
 export interface ProdutoParaScore {
   id: number;
@@ -100,24 +99,30 @@ export function interpretarResposta(texto: string): Map<number, ScoreIA> {
   return mapa;
 }
 
-/** Chama o modelo e devolve os scores. Parte não testável sem ANTHROPIC_API_KEY. */
+/** Chama o modelo e devolve os scores. Parte não testável sem OPENAI_API_KEY. */
 export async function pontuarProdutos(
   produtos: ProdutoParaScore[],
 ): Promise<Map<number, ScoreIA>> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY ausente — curadoria por IA não configurada");
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY ausente — curadoria por IA não configurada");
   }
   if (produtos.length === 0) return new Map();
 
-  const client = new Anthropic();
-  const resp = await client.messages.create({
+  const client = new OpenAI();
+  const resp = await client.chat.completions.create({
     model: MODELO,
-    max_tokens: 4000,
-    thinking: { type: "adaptive" },
-    // effort baixo: scoring é tarefa leve; format garante JSON válido no schema
-    output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
-    system: SYSTEM,
+    max_completion_tokens: 4000,
+    // strict garante JSON válido no schema
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "curadoria",
+        strict: true,
+        schema: SCHEMA as unknown as Record<string, unknown>,
+      },
+    },
     messages: [
+      { role: "system", content: SYSTEM },
       {
         role: "user",
         content: JSON.stringify(
@@ -137,12 +142,7 @@ export async function pontuarProdutos(
     ],
   });
 
-  const texto = resp.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-
-  return interpretarResposta(texto);
+  return interpretarResposta(resp.choices[0]?.message?.content ?? "");
 }
 
 /**

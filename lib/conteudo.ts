@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -6,10 +6,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * roteiro e grava como rascunho na tabela `posts` (status 'rascunho'). O admin
  * aprova antes de usar — nada é publicado automaticamente aqui.
  *
- * Config-gated em ANTHROPIC_API_KEY (a rota responde 503 sem ela). Reusa o
+ * Config-gated em OPENAI_API_KEY (a rota responde 503 sem ela). Reusa o
  * angulo_ia/tags_ia da curadoria quando existem, pra dar contexto ao modelo.
+ * Default gpt-4.1 (é a copy que vai pro post — vale um modelo melhor; volume baixo).
  */
-const MODELO = process.env.CONTEUDO_MODELO ?? "claude-opus-5";
+const MODELO = process.env.CONTEUDO_MODELO ?? "gpt-4.1";
 
 export type Canal = "instagram_feed" | "instagram_story" | "tiktok" | "whatsapp";
 
@@ -78,21 +79,27 @@ export function interpretarConteudo(texto: string): ConteudoGerado | null {
   return { legenda, hashtags, roteiro };
 }
 
-/** Chama o modelo pra um produto. Parte não testável sem ANTHROPIC_API_KEY. */
+/** Chama o modelo pra um produto. Parte não testável sem OPENAI_API_KEY. */
 export async function gerarConteudo(
   produto: ProdutoParaConteudo,
 ): Promise<ConteudoGerado | null> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY ausente — geração de conteúdo não configurada");
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY ausente — geração de conteúdo não configurada");
   }
-  const client = new Anthropic();
-  const resp = await client.messages.create({
+  const client = new OpenAI();
+  const resp = await client.chat.completions.create({
     model: MODELO,
-    max_tokens: 6000,
-    thinking: { type: "adaptive" },
-    output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
-    system: SYSTEM,
+    max_completion_tokens: 6000,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "conteudo",
+        strict: true,
+        schema: SCHEMA as unknown as Record<string, unknown>,
+      },
+    },
     messages: [
+      { role: "system", content: SYSTEM },
       {
         role: "user",
         content: JSON.stringify({
@@ -109,11 +116,7 @@ export async function gerarConteudo(
     ],
   });
 
-  const txt = resp.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("");
-  return interpretarConteudo(txt);
+  return interpretarConteudo(resp.choices[0]?.message?.content ?? "");
 }
 
 /** Grava um rascunho na tabela posts. Testável com conteúdo mock. */
