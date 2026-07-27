@@ -85,6 +85,12 @@ export default async function Admin() {
               {fila.length} na fila · {vitrine.length} na vitrine
             </span>
             <a
+              href="/admin/conteudo"
+              className="rounded-full border border-black/10 px-3 py-1.5 font-bold text-tinta transition-colors hover:bg-white"
+            >
+              Conteúdo
+            </a>
+            <a
               href="/admin/metricas"
               className="rounded-full bg-tinta px-3 py-1.5 font-bold text-white transition-colors hover:bg-pirraia"
             >
