@@ -26,10 +26,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { erro: "OPENAI_API_KEY ausente — geração de conteúdo não configurada" },
-      { status: 503 },
-    );
+    // status 200 + ok:false: o EasyPanel mascara 5xx; assim a mensagem chega.
+    return NextResponse.json({
+      ok: false,
+      erro: "OPENAI_API_KEY ausente — geração de conteúdo não configurada",
+    });
   }
 
   const canalParam = request.nextUrl.searchParams.get("canal") as Canal | null;
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       detalhe: res,
       duracao_ms: Date.now() - inicio,
     });
-    return NextResponse.json(res);
+    return NextResponse.json({ ok: true, ...res });
   } catch (e) {
     const msg = (e as Error).message;
     await supabase.from("execucoes").insert({
@@ -107,6 +108,6 @@ export async function POST(request: NextRequest) {
       detalhe: { erro: msg },
       duracao_ms: Date.now() - inicio,
     });
-    return NextResponse.json({ erro: msg }, { status: 502 });
+    return NextResponse.json({ ok: false, erro: msg });
   }
 }

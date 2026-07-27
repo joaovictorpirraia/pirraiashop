@@ -26,10 +26,11 @@ export async function POST(request: NextRequest) {
   const appId = process.env.SHOPEE_APP_ID;
   const shopeeSecret = process.env.SHOPEE_SECRET;
   if (!appId || !shopeeSecret) {
-    return NextResponse.json(
-      { erro: "SHOPEE_APP_ID/SECRET ausentes — Open API ainda não configurada" },
-      { status: 503 },
-    );
+    // status 200 + ok:false: o EasyPanel mascara 5xx; assim a mensagem chega.
+    return NextResponse.json({
+      ok: false,
+      erro: "SHOPEE_APP_ID/SECRET ausentes — Open API ainda não configurada",
+    });
   }
 
   const inicio = Date.now();
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
       duracao_ms: Date.now() - inicio,
     });
 
-    return NextResponse.json(res);
+    return NextResponse.json({ ok: true, ...res });
   } catch (e) {
     const msg = (e as Error).message;
     await supabase.from("execucoes").insert({
@@ -66,6 +67,6 @@ export async function POST(request: NextRequest) {
       detalhe: { erro: msg },
       duracao_ms: Date.now() - inicio,
     });
-    return NextResponse.json({ erro: msg }, { status: 502 });
+    return NextResponse.json({ ok: false, erro: msg });
   }
 }

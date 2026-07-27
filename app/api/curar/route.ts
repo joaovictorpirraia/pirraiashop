@@ -23,10 +23,12 @@ export async function POST(request: NextRequest) {
   }
 
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json(
-      { erro: "OPENAI_API_KEY ausente — curadoria por IA não configurada" },
-      { status: 503 },
-    );
+    // status 200 + ok:false: o proxy do EasyPanel mascara 5xx com a página dele,
+    // então erros vão como 200 pra o corpo (a mensagem real) chegar ao chamador.
+    return NextResponse.json({
+      ok: false,
+      erro: "OPENAI_API_KEY ausente — curadoria por IA não configurada",
+    });
   }
 
   const inicio = Date.now();
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
       duracao_ms: Date.now() - inicio,
     });
 
-    return NextResponse.json(res);
+    return NextResponse.json({ ok: true, ...res });
   } catch (e) {
     const msg = (e as Error).message;
     await supabase.from("execucoes").insert({
@@ -65,6 +67,6 @@ export async function POST(request: NextRequest) {
       detalhe: { erro: msg },
       duracao_ms: Date.now() - inicio,
     });
-    return NextResponse.json({ erro: msg }, { status: 502 });
+    return NextResponse.json({ ok: false, erro: msg });
   }
 }
