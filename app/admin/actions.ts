@@ -288,6 +288,31 @@ export async function curarProduto(formData: FormData) {
   revalidar();
 }
 
+/**
+ * Limpa os produtos de exemplo do seed inicial (some da vitrine e da fila).
+ * Marcador seguro: `url_produto` de placeholder `https://shopee.com.br/produto-<n>`
+ * — os produtos reais cadastrados pelo `+ Produto` têm url_produto nula, então
+ * não batem no filtro. Descarte reversível (status 'descartado' + link inativo),
+ * não apaga de vez.
+ */
+const MARCADOR_EXEMPLO = "https://shopee.com.br/produto-%";
+
+export async function limparExemplos() {
+  const supabase = supabaseAdmin();
+  const { data: exemplos } = await supabase
+    .from("produtos")
+    .select("id")
+    .like("url_produto", MARCADOR_EXEMPLO)
+    .neq("status", "descartado");
+  const ids = (exemplos ?? []).map((p) => p.id);
+  if (ids.length === 0) return;
+
+  // desativa os links (some da vitrine) e descarta os produtos (some da fila)
+  await supabase.from("links").update({ ativo: false }).in("produto_id", ids);
+  await supabase.from("produtos").update({ status: "descartado" }).in("id", ids);
+  revalidar();
+}
+
 /** Descarta um produto da fila (não volta a aparecer). */
 export async function descartarProduto(formData: FormData) {
   const produtoId = Number(formData.get("produtoId"));
