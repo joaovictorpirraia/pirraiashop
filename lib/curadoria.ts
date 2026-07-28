@@ -147,6 +147,31 @@ export async function pontuarProdutos(
 }
 
 /**
+ * Pontua os produtos sem score_ia dentro dos status pedidos (teto de 40).
+ * Reusada pela rota /api/curar (fila 'novo') e pelo botão do admin
+ * (produtos 'curado'/'publicado' adicionados à mão). Não mexe em status.
+ */
+export async function pontuarPendentes(
+  supabase: SupabaseClient,
+  statuses: string[] = ["novo"],
+): Promise<{ recebidos: number; pontuados: number; gravados: number }> {
+  const { data, error } = await supabase
+    .from("produtos")
+    .select(
+      "id, titulo, categoria, preco, preco_antigo, desconto_pct, loja_nome, vendas, avaliacao",
+    )
+    .in("status", statuses)
+    .is("score_ia", null)
+    .limit(40);
+  if (error) throw new Error(error.message);
+
+  const produtos = (data ?? []) as ProdutoParaScore[];
+  const scores = await pontuarProdutos(produtos);
+  const gravados = await aplicarScores(supabase, scores);
+  return { recebidos: produtos.length, pontuados: scores.size, gravados };
+}
+
+/**
  * Grava os scores nos produtos. Testável com scores mock contra o banco real.
  * Escreve só score_ia/angulo_ia/tags_ia — não mexe em status.
  */

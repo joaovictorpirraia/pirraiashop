@@ -8,6 +8,7 @@ import {
   moverLink,
   removerDaVitrine,
   reordenarPorPerformance,
+  pontuarVitrine,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -132,16 +133,29 @@ export default async function Admin() {
             <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
               Na vitrine
             </h2>
-            {vitrine.length > 1 && (
-              <form action={reordenarPorPerformance}>
-                <button
-                  type="submit"
-                  className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
-                  title="Reordena por cliques + score da IA. O destaque continua no topo."
-                >
-                  Reordenar por performance
-                </button>
-              </form>
+            {vitrine.length > 0 && (
+              <div className="flex items-center gap-2">
+                <form action={pontuarVitrine}>
+                  <button
+                    type="submit"
+                    className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
+                    title="A IA pontua os produtos da vitrine que ainda não têm score (ex.: os que você adicionou à mão)."
+                  >
+                    Pontuar com IA
+                  </button>
+                </form>
+                {vitrine.length > 1 && (
+                  <form action={reordenarPorPerformance}>
+                    <button
+                      type="submit"
+                      className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
+                      title="Reordena por cliques + score da IA. O destaque continua no topo."
+                    >
+                      Reordenar por performance
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
           </div>
           {vitrine.length === 0 ? (
