@@ -20,19 +20,28 @@ configurado): cada merge na `main` precisa de um Deploy no painel.
   (PageView/ViewContent + Lead via CAPI), admin `/admin` (Basic Auth). O pixel **não** dispara
   na área de admin.
 - **Camada de IA (OpenAI):** curadoria (`POST /api/curar`, `gpt-4.1-mini`) pontua 0–100 + ângulo
-  + tags; geração de conteúdo (`POST /api/gerar-conteudo`, `gpt-4.1`) escreve legenda + hashtags
-  + roteiro. Structured outputs; gate = `OPENAI_API_KEY`; modelo por env
-  (`CURADORIA_MODELO`/`CONTEUDO_MODELO`). Validado com chamada real em produção.
+  + tags — inclui os produtos adicionados à mão (botão "Pontuar com IA" na vitrine); geração de
+  conteúdo (`POST /api/gerar-conteudo`, `gpt-4.1`) escreve legenda + hashtags + roteiro **por canal**
+  (feed / story / TikTok / WhatsApp — prompt muda por canal). Structured outputs; gate = `OPENAI_API_KEY`;
+  modelo por env (`CURADORIA_MODELO`/`CONTEUDO_MODELO`). Validado com chamada real em produção.
 - **Ordenação inteligente** (`POST /api/ordenar` + botão no admin): reordena a vitrine por
   cliques + `score_ia`. Não precisa de chave.
 - **Admin operável pela tela:** `+ Produto` (cadastro manual → vitrine), `Editar` produto,
-  `Conteúdo` (abas Rascunhos/Aprovados, botões "Gerar conteúdo" / "Copiar legenda+hashtags" /
-  "Já postei"), `Métricas` (cliques/dia, top produtos, origem UTM), "Reordenar por performance".
+  `Conteúdo` (abas Rascunhos/Aprovados; gerar por canal, **Regerar** com IA, **Editar** o texto à mão,
+  "Copiar legenda+hashtags" / "Copiar roteiro" / "Já postei"), "Reordenar por performance",
+  "Pontuar com IA".
+- **Métricas fundas** (`/admin/metricas`): cliques/dia (14d), **melhor dia da semana** e **melhor horário**
+  (em horário de Brasília), **por categoria**, origem `utm_source · utm_medium`, top produtos.
+- **Ingestão Mercado Livre:** `lib/ingest.ts` (`ingerirItensML`) + `POST /api/ingest-ml?key=&q=<palavra>`
+  e botão "Importar ML" no admin — busca pública do ML, cai na fila `novo`, cura colando o link manual.
+  Reusa `upsertNormalizados`. **Depende da migration 002 aplicada** (ver Falta).
 - **Ingestão da Shopee:** código pronto e testado com mock (`lib/ingest.ts` + `POST /api/ingest`);
   responde 503 até `SHOPEE_APP_ID`/`SECRET` existirem.
 - Rotas de API devolvem `200 {ok:false, erro}` em falha (o proxy do EasyPanel mascara 5xx).
 
 ### Falta / pendências
+- **Rodar `migrations/002_mercadolivre.sql`** no SQL Editor do Supabase (widen do check `origem`
+  pra incluir `mercadolivre`) — sem isso o "Importar ML" volta erro. Aditivo, não quebra nada.
 - **Emitir o SSL** Let's Encrypt no EasyPanel (aba SSL) — visitante ainda vê "não seguro".
 - **Trocar os 5 produtos falsos do seed por reais** (já dá pelo `+ Produto`) antes de mandar tráfego.
 - Senha do admin mais forte; auto-deploy no EasyPanel (opcional).
@@ -43,8 +52,8 @@ configurado): cada merge na `main` precisa de um Deploy no painel.
 ### Futuro / não construído
 - **Publicação automática** no Instagram/TikTok (hoje o conteúdo é copiado e postado à mão) —
   precisa Instagram Graph API + conta business + app review da Meta.
-- Pontuar com IA os produtos adicionados à mão (hoje só a fila de ingestão é pontuada).
-- Mercado Livre como 2ª fonte (scaffold em `lib/mercadolivre.ts` + `migrations/002_mercadolivre.sql`).
+- **Link de afiliado ML automático:** o ML não expõe API pública de shortlink de afiliado (mesmo
+  caso da Shopee hoje). Por isso a ingestão do ML traz só os dados; o link entra manual na curadoria.
 
 ## Stack (não negociar, é a mesma de outro projeto dele)
 
