@@ -34,17 +34,18 @@ configurado): cada merge na `main` precisa de um Deploy no painel.
   (em horário de Brasília), **por categoria**, origem `utm_source · utm_medium`, top produtos.
 - **Ingestão Mercado Livre:** `lib/ingest.ts` (`ingerirItensML`) + `POST /api/ingest-ml?key=&q=<palavra>`
   e botão "Importar ML" no admin — cai na fila `novo`, cura colando o link manual. Reusa
-  `upsertNormalizados`. Migration 002 aplicada em produção. **Bloqueado por credencial:** o ML
-  fechou a busca anônima (`/sites/MLB/search` volta **403** sem token — confirmado em prod jul/2026).
-  Precisa de `MERCADOLIVRE_TOKEN` (access token de app do ML) pra rodar. Pipeline testado ponta a
-  ponta; só falta o token, mesmo caso da Shopee.
+  `upsertNormalizados`. Migration 002 aplicada em produção. O ML fechou a busca anônima
+  (`/sites/MLB/search` volta **403** sem token — confirmado em prod jul/2026), então `lib/mercadolivre.ts`
+  tem `tokenApp()`: com `MERCADOLIVRE_CLIENT_ID`/`SECRET` no env ele pega e renova o token via
+  `client_credentials` sozinho (cache em memória ~6h). **Falta só pôr as credenciais do app no env.**
 - **Ingestão da Shopee:** código pronto e testado com mock (`lib/ingest.ts` + `POST /api/ingest`);
   responde 503 até `SHOPEE_APP_ID`/`SECRET` existirem.
 - Rotas de API devolvem `200 {ok:false, erro}` em falha (o proxy do EasyPanel mascara 5xx).
 
 ### Falta / pendências
-- **`MERCADOLIVRE_TOKEN`**: o ML fechou a busca anônima (403). A ingestão do ML só roda com um
-  access token de app do ML no env. Migration 002 já aplicada em produção.
+- **Credenciais do app ML**: pôr `MERCADOLIVRE_CLIENT_ID` + `MERCADOLIVRE_CLIENT_SECRET` no EasyPanel
+  (app criado em developers.mercadolivre.com.br, grant client_credentials). Sem isso a busca do ML
+  volta 403. Migration 002 já aplicada em produção.
 - **Emitir o SSL** Let's Encrypt no EasyPanel (aba SSL) — visitante ainda vê "não seguro".
 - **Trocar os 5 produtos falsos do seed por reais** (já dá pelo `+ Produto`) antes de mandar tráfego.
 - Senha do admin mais forte; auto-deploy no EasyPanel (opcional).
