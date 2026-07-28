@@ -20,10 +20,25 @@ export async function reordenarPorPerformance() {
 
 /** Pontua com IA os produtos da vitrine (curado/publicado) que ainda não têm score. */
 export async function pontuarVitrine() {
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
   try {
-    await pontuarPendentes(supabaseAdmin(), ["curado", "publicado"]);
+    const res = await pontuarPendentes(supabase, ["curado", "publicado"]);
+    await supabase.from("execucoes").insert({
+      job: "pontuar_vitrine",
+      ok: true,
+      itens: res.gravados,
+      detalhe: res,
+      duracao_ms: Date.now() - inicio,
+    });
   } catch (e) {
-    console.error("[admin] pontuar vitrine:", (e as Error).message);
+    await supabase.from("execucoes").insert({
+      job: "pontuar_vitrine",
+      ok: false,
+      itens: 0,
+      detalhe: { erro: (e as Error).message },
+      duracao_ms: Date.now() - inicio,
+    });
   }
   revalidar();
 }

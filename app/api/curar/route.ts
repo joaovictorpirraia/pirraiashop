@@ -31,11 +31,17 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // alvo=vitrine pontua os curado/publicado (manuais); default = fila 'novo'
+  const statuses =
+    request.nextUrl.searchParams.get("alvo") === "vitrine"
+      ? ["curado", "publicado"]
+      : ["novo"];
+
   const inicio = Date.now();
   const supabase = supabaseAdmin();
 
   try {
-    const res = await pontuarPendentes(supabase, ["novo"]);
+    const res = await pontuarPendentes(supabase, statuses);
 
     await supabase.from("execucoes").insert({
       job: "curadoria_ia",
