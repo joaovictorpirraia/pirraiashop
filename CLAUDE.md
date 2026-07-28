@@ -33,15 +33,18 @@ configurado): cada merge na `main` precisa de um Deploy no painel.
 - **Métricas fundas** (`/admin/metricas`): cliques/dia (14d), **melhor dia da semana** e **melhor horário**
   (em horário de Brasília), **por categoria**, origem `utm_source · utm_medium`, top produtos.
 - **Ingestão Mercado Livre:** `lib/ingest.ts` (`ingerirItensML`) + `POST /api/ingest-ml?key=&q=<palavra>`
-  e botão "Importar ML" no admin — busca pública do ML, cai na fila `novo`, cura colando o link manual.
-  Reusa `upsertNormalizados`. **Depende da migration 002 aplicada** (ver Falta).
+  e botão "Importar ML" no admin — cai na fila `novo`, cura colando o link manual. Reusa
+  `upsertNormalizados`. Migration 002 aplicada em produção. **Bloqueado por credencial:** o ML
+  fechou a busca anônima (`/sites/MLB/search` volta **403** sem token — confirmado em prod jul/2026).
+  Precisa de `MERCADOLIVRE_TOKEN` (access token de app do ML) pra rodar. Pipeline testado ponta a
+  ponta; só falta o token, mesmo caso da Shopee.
 - **Ingestão da Shopee:** código pronto e testado com mock (`lib/ingest.ts` + `POST /api/ingest`);
   responde 503 até `SHOPEE_APP_ID`/`SECRET` existirem.
 - Rotas de API devolvem `200 {ok:false, erro}` em falha (o proxy do EasyPanel mascara 5xx).
 
 ### Falta / pendências
-- **Rodar `migrations/002_mercadolivre.sql`** no SQL Editor do Supabase (widen do check `origem`
-  pra incluir `mercadolivre`) — sem isso o "Importar ML" volta erro. Aditivo, não quebra nada.
+- **`MERCADOLIVRE_TOKEN`**: o ML fechou a busca anônima (403). A ingestão do ML só roda com um
+  access token de app do ML no env. Migration 002 já aplicada em produção.
 - **Emitir o SSL** Let's Encrypt no EasyPanel (aba SSL) — visitante ainda vê "não seguro".
 - **Trocar os 5 produtos falsos do seed por reais** (já dá pelo `+ Produto`) antes de mandar tráfego.
 - Senha do admin mais forte; auto-deploy no EasyPanel (opcional).

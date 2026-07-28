@@ -1,21 +1,17 @@
 /**
  * Cliente do Mercado Livre — SCAFFOLD, ainda não validado contra a API real.
  *
- * Situação (pesquisado em jul/2026):
- *  - Dados de produto: a API pública do ML existe e é documentada
- *    (https://api.mercadolibre.com). A busca por site funciona sem OAuth pra
- *    leitura básica; recursos avançados pedem um app (client_id/secret).
- *  - Link de afiliado: NÃO há API pública limpa de geração de shortlink de
- *    afiliado. O programa "Mercado Livre Afiliados" gera o link pela UI, e o
- *    acesso programático é restrito a alto volume. Ou seja: mesmo modelo da
- *    Shopee hoje — ingerir o produto, curar no /admin e colar o link manual.
+ * Situação (validado em produção jul/2026):
+ *  - Busca de produto (`/sites/MLB/search`): o ML FECHOU o acesso anônimo. Sem token
+ *    volta 403 "forbidden" (confirmado com chamada real). Agora precisa de um access
+ *    token de app do ML — passe em `opts.accessToken` ou defina `MERCADOLIVRE_TOKEN`.
+ *    Mesmo modelo da Shopee: sem credencial, a ingestão não roda.
+ *  - Link de afiliado: NÃO há API pública limpa de geração de shortlink de afiliado.
+ *    O programa "Mercado Livre Afiliados" gera o link pela UI. Ou seja: ingerir o
+ *    produto, curar no /admin e colar o link manual.
  *
- * Por isso este arquivo cobre só a parte de DADOS. Quando for ligar de verdade:
- *  1. rodar migrations/002_mercadolivre.sql (adiciona 'mercadolivre' ao enum origem)
- *  2. validar o shape de `buscarItens` contra a resposta real (os campos abaixo
- *     seguem a doc, mas confirme antes de confiar)
- *  3. reusar lib/ingest.ts: paraProdutoML() já devolve o formato de `produtos`,
- *     então ingerirOfertas() serve com um pequeno adaptador de tipo.
+ * Este arquivo cobre só a parte de DADOS. O resto do pipeline (upsert na fila,
+ * curadoria, dedup) já está pronto e testado em lib/ingest.ts — falta só o token.
  */
 
 const ENDPOINT = "https://api.mercadolibre.com";
@@ -32,7 +28,10 @@ export interface ItemML {
   seller?: { nickname?: string };
 }
 
-/** Busca itens no site do ML (MLB = Brasil). Leitura básica; sem OAuth. */
+/**
+ * Busca itens no site do ML (MLB = Brasil). O ML fechou o acesso anônimo — sem
+ * token volta 403. Passe `opts.accessToken` ou defina `MERCADOLIVRE_TOKEN`.
+ */
 export async function buscarItens(opts: {
   q?: string;
   categoria?: string;
@@ -44,11 +43,19 @@ export async function buscarItens(opts: {
   if (opts.categoria) params.set("category", opts.categoria);
   params.set("limit", String(Math.min(opts.limit ?? 50, 50)));
 
+  const token = opts.accessToken ?? process.env.MERCADOLIVRE_TOKEN;
   const headers: Record<string, string> = {};
-  if (opts.accessToken) headers.Authorization = `Bearer ${opts.accessToken}`;
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   const resp = await fetch(`${ENDPOINT}/sites/MLB/search?${params}`, { headers });
   if (!resp.ok) {
+    if (resp.status === 401 || resp.status === 403) {
+      throw new Error(
+        token
+          ? `Mercado Livre recusou o token (${resp.status}) — confira MERCADOLIVRE_TOKEN`
+          : `Mercado Livre exige token: busca anônima volta ${resp.status}. Defina MERCADOLIVRE_TOKEN (app do ML).`,
+      );
+    }
     throw new Error(`Mercado Livre HTTP ${resp.status}`);
   }
   const json = (await resp.json()) as { results?: ItemML[] };
