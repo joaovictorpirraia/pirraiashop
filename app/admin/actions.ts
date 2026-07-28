@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
@@ -14,6 +15,91 @@ function revalidar() {
 export async function reordenarPorPerformance() {
   await reordenarVitrine(supabaseAdmin());
   revalidar();
+}
+
+/**
+ * Adiciona um produto manualmente já na vitrine (fase manual, antes da ingestão).
+ * Cria o produto como 'curado' + o link de afiliado num passo. Redireciona pro
+ * /admin no fim; se algum campo obrigatório faltar, volta pro form com ?erro=1.
+ */
+export async function adicionarProduto(formData: FormData) {
+  const titulo = String(formData.get("titulo") ?? "").trim();
+  const imagemUrl = String(formData.get("imagem_url") ?? "").trim();
+  const preco = Number(formData.get("preco"));
+  const precoAntigoRaw = String(formData.get("preco_antigo") ?? "").trim();
+  const precoAntigo = precoAntigoRaw ? Number(precoAntigoRaw) : null;
+  const categoria = String(formData.get("categoria") ?? "").trim() || null;
+  const loja = String(formData.get("loja_nome") ?? "").trim() || null;
+  const shortUrl = String(formData.get("short_url") ?? "").trim();
+  const slugBase = slugify(String(formData.get("slug") ?? "") || titulo);
+
+  const invalido =
+    !titulo ||
+    !imagemUrl ||
+    !Number.isFinite(preco) ||
+    preco <= 0 ||
+    !shortUrl ||
+    !/^https?:\/\//i.test(shortUrl);
+  if (invalido) redirect("/admin/novo?erro=1");
+
+  const supabase = supabaseAdmin();
+
+  const desconto =
+    precoAntigo && precoAntigo > preco
+      ? Math.round((1 - preco / precoAntigo) * 100)
+      : null;
+
+  const { data: prod, error: e1 } = await supabase
+    .from("produtos")
+    .insert({
+      origem: "manual",
+      item_id: Date.now(),
+      titulo,
+      categoria,
+      preco,
+      preco_antigo: precoAntigo,
+      desconto_pct: desconto,
+      imagem_url: imagemUrl,
+      loja_nome: loja,
+      status: "curado",
+    })
+    .select("id")
+    .single();
+  if (e1 || !prod) {
+    console.error("[admin] adicionar produto:", e1?.message);
+    redirect("/admin/novo?erro=1");
+  }
+
+  // slug único
+  let slug = slugBase || `produto-${prod.id}`;
+  const raiz = slug;
+  for (let i = 2; i < 60; i++) {
+    const { data: existe } = await supabase
+      .from("links")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!existe) break;
+    slug = `${raiz}-${i}`;
+  }
+  const { data: ult } = await supabase
+    .from("links")
+    .select("ordem")
+    .order("ordem", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const ordem = (ult?.ordem ?? -1) + 1;
+
+  await supabase.from("links").insert({
+    produto_id: prod.id,
+    slug,
+    short_url: shortUrl,
+    ativo: true,
+    ordem,
+  });
+
+  revalidar();
+  redirect("/admin");
 }
 
 /**
