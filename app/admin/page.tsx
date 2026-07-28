@@ -10,6 +10,7 @@ import {
   reordenarPorPerformance,
   pontuarVitrine,
   importarML,
+  limparExemplos,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,13 @@ export default async function Admin({
     .order("destaque", { ascending: false })
     .order("ordem", { ascending: true });
 
+  // quantos produtos de exemplo (do seed) ainda existem — pra oferecer a limpeza
+  const { count: nExemplos } = await supabase
+    .from("produtos")
+    .select("id", { count: "exact", head: true })
+    .like("url_produto", "https://shopee.com.br/produto-%")
+    .neq("status", "descartado");
+
   const fila = (filaRaw ?? []) as ProdutoNovo[];
   const vitrine = ((linksRaw ?? []) as unknown[])
     .map((l) => {
@@ -122,6 +130,25 @@ export default async function Admin({
       </header>
 
       <main className="mx-auto max-w-3xl space-y-10 px-5 py-8">
+        {/* PRODUTOS DE EXEMPLO (seed) — some quando limpar */}
+        {(nExemplos ?? 0) > 0 && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white p-4 shadow-carta sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-tinta">
+              <span className="font-semibold">{nExemplos} produto(s) de exemplo</span> ainda na
+              vitrine/fila (do seed inicial). Tire eles antes de mandar tráfego.
+            </div>
+            <form action={limparExemplos}>
+              <button
+                type="submit"
+                className="w-full whitespace-nowrap rounded-lg bg-tinta px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-pirraia sm:w-auto"
+                title="Descarta os produtos de exemplo (some da vitrine e da fila). É reversível — não apaga do banco."
+              >
+                Limpar exemplos
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* FILA DE CURADORIA */}
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
