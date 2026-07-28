@@ -296,6 +296,14 @@ function VitrineRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
+        {/* editar */}
+        <a
+          href={`/admin/editar/${l.produto.id}`}
+          aria-label="Editar produto"
+          className="flex h-8 items-center justify-center rounded-lg border border-black/10 px-2 text-xs font-semibold text-tinta transition-colors hover:bg-areia"
+        >
+          Editar
+        </a>
         {/* mover */}
         <form action={moverLink}>
           <input type="hidden" name="linkId" value={l.id} />

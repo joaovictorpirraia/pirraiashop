@@ -102,6 +102,69 @@ export async function adicionarProduto(formData: FormData) {
   redirect("/admin");
 }
 
+/** Edita um produto da vitrine (produto + link) num passo. */
+export async function editarProduto(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  const linkId = Number(formData.get("linkId"));
+  const titulo = String(formData.get("titulo") ?? "").trim();
+  const imagemUrl = String(formData.get("imagem_url") ?? "").trim();
+  const preco = Number(formData.get("preco"));
+  const precoAntigoRaw = String(formData.get("preco_antigo") ?? "").trim();
+  const precoAntigo = precoAntigoRaw ? Number(precoAntigoRaw) : null;
+  const categoria = String(formData.get("categoria") ?? "").trim() || null;
+  const loja = String(formData.get("loja_nome") ?? "").trim() || null;
+  const shortUrl = String(formData.get("short_url") ?? "").trim();
+  const slugBase = slugify(String(formData.get("slug") ?? "") || titulo);
+
+  const invalido =
+    !produtoId ||
+    !linkId ||
+    !titulo ||
+    !imagemUrl ||
+    !Number.isFinite(preco) ||
+    preco <= 0 ||
+    !shortUrl ||
+    !/^https?:\/\//i.test(shortUrl);
+  if (invalido) redirect(`/admin/editar/${produtoId}?erro=1`);
+
+  const supabase = supabaseAdmin();
+  const desconto =
+    precoAntigo && precoAntigo > preco
+      ? Math.round((1 - preco / precoAntigo) * 100)
+      : null;
+
+  await supabase
+    .from("produtos")
+    .update({
+      titulo,
+      categoria,
+      preco,
+      preco_antigo: precoAntigo,
+      desconto_pct: desconto,
+      imagem_url: imagemUrl,
+      loja_nome: loja,
+    })
+    .eq("id", produtoId);
+
+  // slug único, excluindo o próprio link
+  let slug = slugBase || `produto-${produtoId}`;
+  const raiz = slug;
+  for (let i = 2; i < 60; i++) {
+    const { data: existe } = await supabase
+      .from("links")
+      .select("id")
+      .eq("slug", slug)
+      .neq("id", linkId)
+      .maybeSingle();
+    if (!existe) break;
+    slug = `${raiz}-${i}`;
+  }
+  await supabase.from("links").update({ slug, short_url: shortUrl }).eq("id", linkId);
+
+  revalidar();
+  redirect("/admin");
+}
+
 /**
  * Cura um produto 'novo': cria o link de afiliado (com o short_url colado
  * manualmente, já que a Shopee Open API ainda não gera shortlink) e marca
