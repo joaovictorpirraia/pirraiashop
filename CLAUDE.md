@@ -32,26 +32,26 @@ configurado): cada merge na `main` precisa de um Deploy no painel.
   "Pontuar com IA".
 - **Métricas fundas** (`/admin/metricas`): cliques/dia (14d), **melhor dia da semana** e **melhor horário**
   (em horário de Brasília), **por categoria**, origem `utm_source · utm_medium`, top produtos.
-- **Ingestão Mercado Livre:** `lib/ingest.ts` (`ingerirItensML`) + `POST /api/ingest-ml?key=&q=<palavra>`
-  e botão "Importar ML" no admin — cai na fila `novo`, cura colando o link manual. Reusa
-  `upsertNormalizados`. Migration 002 aplicada em produção. O ML fechou a busca anônima
-  (`/sites/MLB/search` volta **403** sem token — confirmado em prod jul/2026), então `lib/mercadolivre.ts`
-  tem `tokenApp()`: com `MERCADOLIVRE_CLIENT_ID`/`SECRET` no env ele pega e renova o token via
-  `client_credentials` sozinho (cache em memória ~6h). **Falta só pôr as credenciais do app no env.**
+- **Ingestão Mercado Livre (pronta, mas BLOQUEADA pelo ML):** `lib/ingest.ts` (`ingerirItensML`) +
+  `POST /api/ingest-ml?key=&q=<palavra>` e botão "Importar ML" no admin — cai na fila `novo`, cura
+  colando o link manual. Reusa `upsertNormalizados`. Migration 002 aplicada; `tokenApp()` pega/renova
+  token via `client_credentials` (creds do app já no EasyPanel, token válido confirmado em prod).
+  **PORÉM o ML fechou o `/sites/MLB/search` pra apps comuns:** volta **403** mesmo com token válido
+  (o `/users/me` responde, só o `/search` bloqueia). É restrição do lado do ML (parece exigir
+  whitelist não documentado), reportada por vários devs em 2026, sem solução aberta. **Não é bug
+  nosso — não retentar mexendo em scope/código.** Se o ML reabrir/liberar, funciona sem tocar em nada.
 - **Ingestão da Shopee:** código pronto e testado com mock (`lib/ingest.ts` + `POST /api/ingest`);
   responde 503 até `SHOPEE_APP_ID`/`SECRET` existirem.
 - Rotas de API devolvem `200 {ok:false, erro}` em falha (o proxy do EasyPanel mascara 5xx).
 
-### Falta / pendências
-- **Credenciais do app ML**: pôr `MERCADOLIVRE_CLIENT_ID` + `MERCADOLIVRE_CLIENT_SECRET` no EasyPanel
-  (app criado em developers.mercadolivre.com.br, grant client_credentials). Sem isso a busca do ML
-  volta 403. Migration 002 já aplicada em produção.
 - **Emitir o SSL** Let's Encrypt no EasyPanel (aba SSL) — visitante ainda vê "não seguro".
 - **Trocar os 5 produtos falsos do seed por reais** (já dá pelo `+ Produto`) antes de mandar tráfego.
 - Senha do admin mais forte; auto-deploy no EasyPanel (opcional).
 
 ### Esperando de fora
 - **Open API da Shopee** (aprovação 5–15 dias) → liga a ingestão automática e o relatório de ROI.
+- **Liberação do `/sites/MLB/search`** pelo Mercado Livre (bloqueado pra apps comuns em 2026) → liga a
+  ingestão do ML, que já está pronta e testada (só o endpoint deles está fechado).
 
 ### Futuro / não construído
 - **Publicação automática** no Instagram/TikTok (hoje o conteúdo é copiado e postado à mão) —
