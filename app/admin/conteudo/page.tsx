@@ -4,6 +4,7 @@ import {
   descartarPost,
   marcarPublicado,
   gerarConteudoAgora,
+  regerarPost,
 } from "./actions";
 import { CopiarConteudo } from "@/components/CopiarConteudo";
 
@@ -187,7 +188,7 @@ function CardRascunho({ p }: { p: PostRow }) {
     <article className="overflow-hidden rounded-2xl bg-white shadow-carta">
       <Cabecalho p={p} />
       <Corpo p={p} />
-      <div className="flex gap-2 border-t border-black/5 p-3">
+      <div className="flex flex-wrap gap-2 border-t border-black/5 p-3">
         <form action={aprovarPost} className="flex-1">
           <input type="hidden" name="postId" value={p.id} />
           <button
@@ -197,11 +198,27 @@ function CardRascunho({ p }: { p: PostRow }) {
             Aprovar
           </button>
         </form>
+        <form action={regerarPost}>
+          <input type="hidden" name="postId" value={p.id} />
+          <button
+            type="submit"
+            className="rounded-lg border border-black/10 px-3 py-2 text-sm font-medium text-tinta transition-colors hover:bg-areia"
+            title="Pede uma nova versão pra IA (substitui o texto atual)"
+          >
+            Regerar
+          </button>
+        </form>
+        <a
+          href={`/admin/conteudo/editar/${p.id}`}
+          className="rounded-lg border border-black/10 px-3 py-2 text-sm font-medium text-tinta transition-colors hover:bg-areia"
+        >
+          Editar
+        </a>
         <form action={descartarPost}>
           <input type="hidden" name="postId" value={p.id} />
           <button
             type="submit"
-            className="rounded-lg border border-black/10 px-4 py-2 text-sm font-medium text-fumo transition-colors hover:border-red-300 hover:text-red-600"
+            className="rounded-lg border border-black/10 px-3 py-2 text-sm font-medium text-fumo transition-colors hover:border-red-300 hover:text-red-600"
           >
             Descartar
           </button>
@@ -220,6 +237,12 @@ function CardAprovado({ p }: { p: PostRow }) {
         <CopiarConteudo texto={legendaPronta(p)} rotulo="Copiar legenda + hashtags" />
         {p.roteiro && <CopiarConteudo texto={p.roteiro} rotulo="Copiar roteiro" />}
         <div className="flex-1" />
+        <a
+          href={`/admin/conteudo/editar/${p.id}`}
+          className="rounded-lg border border-black/10 px-3 py-2 text-sm font-medium text-tinta transition-colors hover:bg-areia"
+        >
+          Editar
+        </a>
         <form action={marcarPublicado}>
           <input type="hidden" name="postId" value={p.id} />
           <button
