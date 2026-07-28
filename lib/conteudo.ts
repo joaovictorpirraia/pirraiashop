@@ -120,6 +120,64 @@ export async function gerarConteudo(
   return interpretarConteudo(resp.choices[0]?.message?.content ?? "");
 }
 
+/**
+ * Gera rascunhos pros produtos curados que ainda não têm rascunho (teto de 10
+ * por rodada). Reusada pela rota /api/gerar-conteudo e pelo botão do admin.
+ */
+export async function gerarRascunhosPendentes(
+  supabase: SupabaseClient,
+  canal: Canal = "instagram_feed",
+): Promise<{ candidatos: number; gerados: number; canal: Canal }> {
+  const { data: linksRaw, error: e1 } = await supabase
+    .from("links")
+    .select(
+      "id, produto_id, produto:produtos!inner(id, titulo, categoria, preco, preco_antigo, desconto_pct, loja_nome, angulo_ia, tags_ia, status)",
+    )
+    .eq("ativo", true);
+  if (e1) throw new Error(e1.message);
+
+  const { data: rascunhos, error: e2 } = await supabase
+    .from("posts")
+    .select("produto_id")
+    .eq("status", "rascunho");
+  if (e2) throw new Error(e2.message);
+  const jaTem = new Set((rascunhos ?? []).map((r) => r.produto_id));
+
+  type Row = {
+    id: number;
+    produto_id: number;
+    produto:
+      | (ProdutoParaConteudo & { status: string })
+      | (ProdutoParaConteudo & { status: string })[];
+  };
+  const candidatos = ((linksRaw ?? []) as Row[])
+    .map((l) => ({
+      linkId: l.id,
+      produto: Array.isArray(l.produto) ? l.produto[0] : l.produto,
+    }))
+    .filter(
+      (c) =>
+        c.produto &&
+        ["curado", "publicado"].includes(c.produto.status) &&
+        !jaTem.has(c.produto.id),
+    )
+    .slice(0, 10);
+
+  let gerados = 0;
+  for (const c of candidatos) {
+    const conteudo = await gerarConteudo(c.produto as ProdutoParaConteudo);
+    if (!conteudo) continue;
+    const ok = await salvarRascunho(supabase, {
+      produtoId: c.produto.id,
+      linkId: c.linkId,
+      canal,
+      conteudo,
+    });
+    if (ok) gerados++;
+  }
+  return { candidatos: candidatos.length, gerados, canal };
+}
+
 /** Grava um rascunho na tabela posts. Testável com conteúdo mock. */
 export async function salvarRascunho(
   supabase: SupabaseClient,

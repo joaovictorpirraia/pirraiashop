@@ -2,6 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
+import { gerarRascunhosPendentes } from "@/lib/conteudo";
+
+/** Gera rascunhos pros produtos curados sem rascunho (botão do admin). */
+export async function gerarConteudoAgora() {
+  try {
+    await gerarRascunhosPendentes(supabaseAdmin());
+  } catch (e) {
+    console.error("[admin] gerar conteúdo:", (e as Error).message);
+  }
+  revalidatePath("/admin/conteudo");
+}
 
 /** Aprova um rascunho: status 'rascunho' -> 'aprovado'. */
 export async function aprovarPost(formData: FormData) {
