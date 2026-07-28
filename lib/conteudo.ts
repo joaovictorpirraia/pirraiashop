@@ -33,16 +33,47 @@ export interface ConteudoGerado {
   roteiro: string;
 }
 
-const SYSTEM = `Você cria conteúdo para a @pirraiashop, uma vitrine brasileira de achadinhos
-(Shopee/TikTok Shop) cujo público chega pela bio do Instagram. Para o produto dado, gere:
-- legenda: legenda de post em português do Brasil, informal e sem forçar. Primeira linha é um
-  gancho que para o scroll; depois o porquê de valer a pena; e um CTA claro pro "link na bio".
-  2 a 5 linhas. Não prometa o que o produto não faz. No máximo 1 ou 2 emojis, se fizer sentido.
-- hashtags: 5 a 10 hashtags minúsculas, sem o "#", misturando nicho e alcance (ex.: "achadinhos",
-  "organizacao", "shopeebrasil"). Relevantes ao produto, nada genérico demais.
-- roteiro: roteiro curto de reel/story, 3 a 5 cenas, uma por linha, cada linha começando com o
-  que aparece na tela (ex.: "Cena 1 — close no produto na mão"). Prático de gravar com o celular.
-Use o angulo e as tags se vierem. Responda só no formato estruturado, sem texto extra.`;
+export const CANAIS: Canal[] = [
+  "instagram_feed",
+  "instagram_story",
+  "tiktok",
+  "whatsapp",
+];
+
+const BASE = `Você cria conteúdo para a @pirraiashop, vitrine brasileira de achadinhos
+(Shopee/TikTok Shop), público chega pela bio do Instagram. Português do Brasil, informal, sem
+forçar. Não prometa o que o produto não faz. No máximo 1–2 emojis. Use o angulo e as tags se
+vierem. Responda só no formato estruturado, sem texto extra.`;
+
+/** Instruções por canal — o formato do conteúdo muda conforme onde vai postar. */
+function systemPara(canal: Canal): string {
+  switch (canal) {
+    case "instagram_story":
+      return `${BASE}
+Formato: STORY do Instagram (vertical, rápido).
+- legenda: 1 frase curta e direta que caiba num story (gancho + benefício). Story não tem legenda longa.
+- hashtags: 1 a 3, minúsculas, bem específicas.
+- roteiro: 2 a 3 telas de story (uma por linha) com o que aparece; a última com CTA "arrasta pra cima / link na bio".`;
+    case "tiktok":
+      return `${BASE}
+Formato: TikTok.
+- legenda: caption estilo TikTok, curta, gancho forte na 1ª frase; CTA pro link na bio.
+- hashtags: 4 a 8, misturando nicho e trends de TikTok (ex.: achadosdatiktok, tiktokmefezcomprar).
+- roteiro: roteiro de vídeo TikTok, 3 a 5 cenas rápidas (uma por linha), com ideia de trend/áudio se fizer sentido.`;
+    case "whatsapp":
+      return `${BASE}
+Formato: mensagem de WhatsApp (grupo/status/lista). Aqui NÃO existe "link na bio" — o link vai na própria mensagem.
+- legenda: mensagem curta e direta pra colar no WhatsApp, com gancho + benefício + CTA claro (ex.: "corre que tá com desconto 👉"). Deixe claro que é só colar o link do produto no fim.
+- hashtags: deixe vazio (WhatsApp não usa hashtag).
+- roteiro: 1 ou 2 linhas de dica de como mandar (ex.: melhor horário, mandar no status + grupos).`;
+    default:
+      return `${BASE}
+Formato: post/reel de FEED do Instagram.
+- legenda: 2 a 5 linhas. 1ª linha é um gancho que para o scroll; depois o porquê de valer; CTA pro "link na bio".
+- hashtags: 5 a 10 minúsculas, sem "#", misturando nicho e alcance (ex.: achadinhos, organizacao, shopeebrasil).
+- roteiro: roteiro curto de reel, 3 a 5 cenas (uma por linha), cada linha com o que aparece na tela. Prático de gravar no celular.`;
+  }
+}
 
 const SCHEMA = {
   type: "object",
@@ -80,9 +111,10 @@ export function interpretarConteudo(texto: string): ConteudoGerado | null {
   return { legenda, hashtags, roteiro };
 }
 
-/** Chama o modelo pra um produto. Parte não testável sem OPENAI_API_KEY. */
+/** Chama o modelo pra um produto num canal. Parte não testável sem OPENAI_API_KEY. */
 export async function gerarConteudo(
   produto: ProdutoParaConteudo,
+  canal: Canal = "instagram_feed",
 ): Promise<ConteudoGerado | null> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY ausente — geração de conteúdo não configurada");
@@ -100,7 +132,7 @@ export async function gerarConteudo(
       },
     },
     messages: [
-      { role: "system", content: SYSTEM },
+      { role: "system", content: systemPara(canal) },
       {
         role: "user",
         content: JSON.stringify({
@@ -136,10 +168,12 @@ export async function gerarRascunhosPendentes(
     .eq("ativo", true);
   if (e1) throw new Error(e1.message);
 
+  // dedup por (produto, canal): um produto pode ter um rascunho por canal
   const { data: rascunhos, error: e2 } = await supabase
     .from("posts")
     .select("produto_id")
-    .eq("status", "rascunho");
+    .eq("status", "rascunho")
+    .eq("canal", canal);
   if (e2) throw new Error(e2.message);
   const jaTem = new Set((rascunhos ?? []).map((r) => r.produto_id));
 
@@ -165,7 +199,7 @@ export async function gerarRascunhosPendentes(
 
   let gerados = 0;
   for (const c of candidatos) {
-    const conteudo = await gerarConteudo(c.produto as ProdutoParaConteudo);
+    const conteudo = await gerarConteudo(c.produto as ProdutoParaConteudo, canal);
     if (!conteudo) continue;
     const ok = await salvarRascunho(supabase, {
       produtoId: c.produto.id,
