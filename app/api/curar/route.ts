@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { pontuarProdutos, aplicarScores, type ProdutoParaScore } from "@/lib/curadoria";
+import { pontuarPendentes } from "@/lib/curadoria";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -35,24 +35,12 @@ export async function POST(request: NextRequest) {
   const supabase = supabaseAdmin();
 
   try {
-    const { data, error } = await supabase
-      .from("produtos")
-      .select("id, titulo, categoria, preco, preco_antigo, desconto_pct, loja_nome, vendas, avaliacao")
-      .eq("status", "novo")
-      .is("score_ia", null)
-      .limit(40);
-    if (error) throw new Error(error.message);
-
-    const produtos = (data ?? []) as ProdutoParaScore[];
-    const scores = await pontuarProdutos(produtos);
-    const gravados = await aplicarScores(supabase, scores);
-
-    const res = { recebidos: produtos.length, pontuados: scores.size, gravados };
+    const res = await pontuarPendentes(supabase, ["novo"]);
 
     await supabase.from("execucoes").insert({
       job: "curadoria_ia",
       ok: true,
-      itens: gravados,
+      itens: res.gravados,
       detalhe: res,
       duracao_ms: Date.now() - inicio,
     });

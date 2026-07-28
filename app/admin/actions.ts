@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
+import { pontuarPendentes } from "@/lib/curadoria";
 
 function revalidar() {
   revalidatePath("/admin");
@@ -14,6 +15,16 @@ function revalidar() {
 /** Reordena a vitrine por performance (cliques) + potencial (score_ia). */
 export async function reordenarPorPerformance() {
   await reordenarVitrine(supabaseAdmin());
+  revalidar();
+}
+
+/** Pontua com IA os produtos da vitrine (curado/publicado) que ainda não têm score. */
+export async function pontuarVitrine() {
+  try {
+    await pontuarPendentes(supabaseAdmin(), ["curado", "publicado"]);
+  } catch (e) {
+    console.error("[admin] pontuar vitrine:", (e as Error).message);
+  }
   revalidar();
 }
 
