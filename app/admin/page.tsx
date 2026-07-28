@@ -9,12 +9,14 @@ import {
   removerDaVitrine,
   reordenarPorPerformance,
   pontuarVitrine,
+  importarML,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 interface ProdutoNovo {
   id: number;
+  origem: string | null;
   titulo: string;
   categoria: string | null;
   preco: string | number | null;
@@ -25,6 +27,13 @@ interface ProdutoNovo {
   url_produto: string | null;
   score_ia: number | null;
 }
+
+/** Rótulo da loja de origem pra "abrir e pegar o link de afiliado". */
+const ORIGEM_ROTULO: Record<string, string> = {
+  shopee: "Shopee",
+  mercadolivre: "Mercado Livre",
+  tiktok: "TikTok Shop",
+};
 
 interface LinkVitrine {
   id: number;
@@ -44,13 +53,17 @@ interface LinkVitrine {
   };
 }
 
-export default async function Admin() {
+export default async function Admin({
+  searchParams,
+}: {
+  searchParams: { ml?: string; ml_erro?: string };
+}) {
   const supabase = supabaseAdmin();
 
   const { data: filaRaw } = await supabase
     .from("produtos")
     .select(
-      "id, titulo, categoria, preco, preco_antigo, desconto_pct, imagem_url, loja_nome, url_produto, score_ia",
+      "id, origem, titulo, categoria, preco, preco_antigo, desconto_pct, imagem_url, loja_nome, url_produto, score_ia",
     )
     .eq("status", "novo")
     .order("score_ia", { ascending: false, nullsFirst: false })
@@ -111,9 +124,41 @@ export default async function Admin() {
       <main className="mx-auto max-w-3xl space-y-10 px-5 py-8">
         {/* FILA DE CURADORIA */}
         <section>
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-fumo">
-            Fila de curadoria
-          </h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
+              Fila de curadoria
+            </h2>
+            {/* Importar do Mercado Livre por palavra-chave */}
+            <form action={importarML} className="flex items-center gap-1.5">
+              <input
+                name="q"
+                required
+                placeholder="buscar no Mercado Livre…"
+                className="w-44 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
+              />
+              <button
+                type="submit"
+                className="rounded-full bg-tinta px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-pirraia"
+                title="Busca itens no Mercado Livre e joga na fila. O link de afiliado você cola na hora de curar."
+              >
+                Importar ML
+              </button>
+            </form>
+          </div>
+
+          {searchParams.ml != null && (
+            <p className="mb-3 rounded-xl border border-pirraia/20 bg-pirraia-tint px-4 py-2.5 text-sm font-medium text-pirraia-dark">
+              Mercado Livre: {searchParams.ml} item(ns) na fila.
+            </p>
+          )}
+          {searchParams.ml_erro != null && (
+            <p className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
+              {searchParams.ml_erro === "vazio"
+                ? "Digite uma palavra-chave pra buscar no Mercado Livre."
+                : `Falha ao importar do Mercado Livre: ${searchParams.ml_erro}`}
+            </p>
+          )}
+
           {fila.length === 0 ? (
             <p className="rounded-2xl bg-white p-6 text-center text-sm text-fumo shadow-carta">
               Nada novo na fila. Quando a ingestão trouxer produtos, eles caem aqui.
@@ -226,7 +271,8 @@ function FilaCard({ p }: { p: ProdutoNovo }) {
               rel="noreferrer"
               className="mt-1 inline-block text-xs text-fumo underline underline-offset-2 hover:text-tinta"
             >
-              abrir na Shopee pra pegar o link de afiliado
+              abrir {p.origem ? `no ${ORIGEM_ROTULO[p.origem] ?? p.origem}` : "a loja"} pra
+              pegar o link de afiliado
             </a>
           )}
         </div>
