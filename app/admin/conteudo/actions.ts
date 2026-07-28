@@ -6,6 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import {
   gerarRascunhosPendentes,
   gerarConteudo,
+  CANAIS,
+  type Canal,
   type ProdutoParaConteudo,
 } from "@/lib/conteudo";
 
@@ -18,10 +20,12 @@ function parseHashtags(bruto: string): string[] {
     .slice(0, 12);
 }
 
-/** Gera rascunhos pros produtos curados sem rascunho (botão do admin). */
-export async function gerarConteudoAgora() {
+/** Gera rascunhos pros produtos curados sem rascunho no canal escolhido (botão do admin). */
+export async function gerarConteudoAgora(formData: FormData) {
+  const bruto = String(formData.get("canal") ?? "instagram_feed") as Canal;
+  const canal: Canal = CANAIS.includes(bruto) ? bruto : "instagram_feed";
   try {
-    await gerarRascunhosPendentes(supabaseAdmin());
+    await gerarRascunhosPendentes(supabaseAdmin(), canal);
   } catch (e) {
     console.error("[admin] gerar conteúdo:", (e as Error).message);
   }
@@ -78,10 +82,13 @@ export async function regerarPost(formData: FormData) {
 
   const { data: post } = await supabase
     .from("posts")
-    .select("produto_id")
+    .select("produto_id, canal")
     .eq("id", postId)
     .maybeSingle();
   if (!post?.produto_id) return;
+  const canal: Canal = CANAIS.includes(post.canal as Canal)
+    ? (post.canal as Canal)
+    : "instagram_feed";
 
   const { data: p } = await supabase
     .from("produtos")
@@ -91,7 +98,7 @@ export async function regerarPost(formData: FormData) {
   if (!p) return;
 
   try {
-    const novo = await gerarConteudo(p as ProdutoParaConteudo);
+    const novo = await gerarConteudo(p as ProdutoParaConteudo, canal);
     if (novo) {
       await supabase
         .from("posts")

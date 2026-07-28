@@ -69,13 +69,23 @@ export default async function Conteudo({
             <span className="text-fumo">conteúdo</span>
           </span>
           <div className="flex items-center gap-3 text-xs text-fumo">
-            <form action={gerarConteudoAgora}>
+            <form action={gerarConteudoAgora} className="flex items-center gap-1.5">
+              <select
+                name="canal"
+                className="rounded-full border border-black/10 bg-white px-2 py-1.5 text-xs font-semibold text-tinta outline-none"
+                title="Canal do conteúdo a gerar"
+              >
+                <option value="instagram_feed">Feed</option>
+                <option value="instagram_story">Story</option>
+                <option value="tiktok">TikTok</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
               <button
                 type="submit"
                 className="rounded-full bg-pirraia px-3 py-1.5 font-bold text-white transition-colors hover:bg-pirraia-dark"
-                title="Gera rascunhos pros produtos curados que ainda não têm um"
+                title="Gera rascunhos no canal escolhido pros produtos curados sem um"
               >
-                Gerar conteúdo
+                Gerar
               </button>
             </form>
             <a

@@ -1,12 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { gerarRascunhosPendentes, type Canal } from "@/lib/conteudo";
+import { gerarRascunhosPendentes, CANAIS, type Canal } from "@/lib/conteudo";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 export const maxDuration = 300;
-
-const CANAIS: Canal[] = ["instagram_feed", "instagram_story", "tiktok", "whatsapp"];
 
 /**
  * Gera rascunhos de conteúdo (legenda/hashtags/roteiro) para produtos curados
