@@ -71,6 +71,8 @@ export function paraProdutoML(i: ItemML) {
   return {
     origem: "mercadolivre" as const,
     item_id: Number(String(i.id).replace(/\D/g, "")) || 0,
+    // ML não tem shop_id; usa 0 fixo pra o unique (origem,item_id,shop_id) dedupar
+    shop_id: 0,
     titulo: i.title,
     categoria: null,
     cat_ids: i.category_id ? [i.category_id] : [],

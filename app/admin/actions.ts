@@ -6,10 +6,55 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes } from "@/lib/curadoria";
+import { buscarItens } from "@/lib/mercadolivre";
+import { ingerirItensML } from "@/lib/ingest";
 
 function revalidar() {
   revalidatePath("/admin");
   revalidatePath("/"); // a home muda quando um produto entra/sai da vitrine
+}
+
+/**
+ * Importa itens do Mercado Livre por palavra-chave pra fila de curadoria (status
+ * 'novo'). O link de afiliado entra depois, manual, na hora de curar. Requer a
+ * migration 002_mercadolivre.sql aplicada. Volta pro /admin com ?ml=<gravadas>
+ * (ou ?ml_erro=1) pra dar um retorno visível.
+ */
+export async function importarML(formData: FormData) {
+  const q = String(formData.get("q") ?? "").trim();
+  if (!q) redirect("/admin?ml_erro=vazio");
+
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  try {
+    const itens = await buscarItens({ q, limit: 50 });
+    const res = await ingerirItensML(supabase, itens);
+    await supabase.from("execucoes").insert({
+      job: "ingest_ml",
+      ok: res.erros === 0,
+      itens: res.gravadas,
+      detalhe: { q, origem: "admin", ...res },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino =
+      res.erros > 0
+        ? `/admin?ml_erro=${encodeURIComponent(res.detalhe ?? "1")}`
+        : `/admin?ml=${res.gravadas}`;
+  } catch (e) {
+    const msg = (e as Error).message;
+    await supabase.from("execucoes").insert({
+      job: "ingest_ml",
+      ok: false,
+      itens: 0,
+      detalhe: { q, origem: "admin", erro: msg },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = `/admin?ml_erro=${encodeURIComponent(msg)}`;
+  }
+
+  revalidar();
+  redirect(destino); // fora do try: o NEXT_REDIRECT não é engolido pelo catch
 }
 
 /** Reordena a vitrine por performance (cliques) + potencial (score_ia). */
