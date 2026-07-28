@@ -50,6 +50,11 @@ configurado): cada merge na `main` precisa de um Deploy no painel.
 
 ### Esperando de fora
 - **Open API da Shopee** (aprovação 5–15 dias) → liga a ingestão automática e o relatório de ROI.
+  Também destrava o "colar link de afiliado → autofill" (título/preço/imagem/loja/categoria por
+  itemid/shopid). **Não tentar scrapear a Shopee pra isso:** testado com link real (jul/2026) —
+  a API interna `/api/v4/item/get` volta 403 anti-bot e a página do produto devolve captcha
+  ("verify"), de IP de datacenter. Só o redirect do short link resolve (dá shopid/itemid). O
+  autofill só vale pela Open API oficial.
 - **Liberação do `/sites/MLB/search`** pelo Mercado Livre (bloqueado pra apps comuns em 2026) → liga a
   ingestão do ML, que já está pronta e testada (só o endpoint deles está fechado).
 
