@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { aprovarPost, descartarPost } from "./actions";
+import { aprovarPost, descartarPost, gerarConteudoAgora } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +49,18 @@ export default async function Conteudo() {
             <span className="text-fumo">conteúdo</span>
           </span>
           <div className="flex items-center gap-3 text-xs text-fumo">
-            <span>
+            <span className="hidden sm:inline">
               {rascunhos.length} rascunho(s) · {aprovados ?? 0} aprovado(s)
             </span>
+            <form action={gerarConteudoAgora}>
+              <button
+                type="submit"
+                className="rounded-full bg-pirraia px-3 py-1.5 font-bold text-white transition-colors hover:bg-pirraia-dark"
+                title="Gera rascunhos pros produtos curados que ainda não têm um"
+              >
+                Gerar conteúdo
+              </button>
+            </form>
             <a
               href="/admin"
               className="rounded-full border border-black/10 px-3 py-1.5 font-bold text-tinta transition-colors hover:bg-white"
