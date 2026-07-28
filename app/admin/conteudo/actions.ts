@@ -22,10 +22,21 @@ export async function aprovarPost(formData: FormData) {
   revalidatePath("/admin/conteudo");
 }
 
-/** Descarta um rascunho: apaga a linha (libera o produto pra gerar de novo). */
+/** Descarta um post: apaga a linha (libera o produto pra gerar de novo). */
 export async function descartarPost(formData: FormData) {
   const postId = Number(formData.get("postId"));
   if (!postId) return;
   await supabaseAdmin().from("posts").delete().eq("id", postId);
+  revalidatePath("/admin/conteudo");
+}
+
+/** Marca um aprovado como publicado (tira da fila de aprovados). */
+export async function marcarPublicado(formData: FormData) {
+  const postId = Number(formData.get("postId"));
+  if (!postId) return;
+  await supabaseAdmin()
+    .from("posts")
+    .update({ status: "publicado", publicado_em: new Date().toISOString() })
+    .eq("id", postId);
   revalidatePath("/admin/conteudo");
 }
