@@ -89,6 +89,74 @@ export async function pontuarVitrine() {
 }
 
 /**
+ * Captura um produto vindo do bookmarklet (página da Shopee aberta no navegador
+ * do dono). Cai na fila como 'novo' — o link de afiliado entra depois, na curadoria.
+ * Sem status no payload: novo vira 'novo' (default); se já existir (mesmo item),
+ * atualiza preço/imagem mas preserva o status. Dedup por (origem,item_id,shop_id):
+ * o shopid/itemid é extraído da URL do produto quando dá.
+ */
+export async function capturarProduto(dados: {
+  titulo?: string;
+  preco?: number;
+  preco_antigo?: number | null;
+  imagem_url?: string;
+  url_produto?: string;
+  categoria?: string | null;
+  loja_nome?: string | null;
+}): Promise<{ ok: boolean; id?: number; titulo?: string; erro?: string }> {
+  const titulo = String(dados.titulo ?? "").trim();
+  const imagemUrl = String(dados.imagem_url ?? "").trim();
+  const preco = Number(dados.preco);
+  if (!titulo || !imagemUrl || !Number.isFinite(preco) || preco <= 0) {
+    return { ok: false, erro: "faltou título, imagem ou preço válido" };
+  }
+
+  const url = String(dados.url_produto ?? "").trim();
+  // extrai shopid/itemid da URL da Shopee (várias formas) pra dedup; senão gera um id
+  const m =
+    url.match(/-i\.(\d+)\.(\d+)/) ||
+    url.match(/\/product\/(\d+)\/(\d+)/) ||
+    url.match(/\/(\d{6,})\/(\d{6,})(?:[/?#]|$)/);
+  const shopId = m ? Number(m[1]) : 0;
+  const itemId = m ? Number(m[2]) : Date.now();
+
+  const precoAntigo =
+    dados.preco_antigo != null && Number(dados.preco_antigo) > preco
+      ? Number(dados.preco_antigo)
+      : null;
+  const desconto = precoAntigo ? Math.round((1 - preco / precoAntigo) * 100) : null;
+
+  const { data, error } = await supabaseAdmin()
+    .from("produtos")
+    .upsert(
+      {
+        origem: "shopee",
+        item_id: itemId,
+        shop_id: shopId,
+        titulo,
+        categoria: dados.categoria?.trim() || null,
+        preco,
+        preco_antigo: precoAntigo,
+        desconto_pct: desconto,
+        imagem_url: imagemUrl,
+        url_produto: url || null,
+        loja_nome: dados.loja_nome?.trim() || null,
+        // sem `status`: insert vira 'novo' (fila); update preserva o status atual
+      },
+      { onConflict: "origem,item_id,shop_id" },
+    )
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("[admin] capturar produto:", error.message);
+    return { ok: false, erro: error.message };
+  }
+  revalidar();
+  return { ok: true, id: data?.id, titulo };
+}
+
+/**
  * Adiciona um produto manualmente já na vitrine (fase manual, antes da ingestão).
  * Cria o produto como 'curado' + o link de afiliado num passo. Redireciona pro
  * /admin no fim; se algum campo obrigatório faltar, volta pro form com ?erro=1.
