@@ -133,24 +133,42 @@ export default function Midia() {
             </p>
 
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {urls.map((u) => (
-                <button
-                  key={u}
-                  type="button"
-                  onClick={() => setSel((s) => ({ ...s, [u]: !s[u] }))}
-                  className={`relative aspect-square overflow-hidden rounded-lg border-2 transition-all ${
-                    sel[u] ? "border-pirraia" : "border-transparent opacity-45"
-                  }`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={u} alt="" className="h-full w-full object-cover" />
-                  {sel[u] && (
-                    <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-pirraia text-[11px] font-bold text-white">
-                      ✓
-                    </span>
-                  )}
-                </button>
-              ))}
+              {urls.map((u) => {
+                const ehVideo = /\.mp4(\?|$)/i.test(u) || /vod\.susercontent/i.test(u);
+                return (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setSel((s) => ({ ...s, [u]: !s[u] }))}
+                    className={`relative aspect-square overflow-hidden rounded-lg border-2 transition-all ${
+                      sel[u] ? "border-pirraia" : "border-transparent opacity-45"
+                    }`}
+                  >
+                    {ehVideo ? (
+                      <video
+                        src={u}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="h-full w-full bg-black object-cover"
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={u} alt="" className="h-full w-full object-cover" />
+                    )}
+                    {ehVideo && (
+                      <span className="absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[10px] font-bold text-white">
+                        🎬 vídeo
+                      </span>
+                    )}
+                    {sel[u] && (
+                      <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-pirraia text-[11px] font-bold text-white">
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
