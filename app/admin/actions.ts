@@ -313,6 +313,7 @@ export async function curarProduto(formData: FormData) {
   const produtoId = Number(formData.get("produtoId"));
   const shortUrl = String(formData.get("shortUrl") ?? "").trim();
   const slugBase = slugify(String(formData.get("slug") ?? ""));
+  const categoria = String(formData.get("categoria") ?? "").trim();
 
   if (!produtoId || !shortUrl || !/^https?:\/\//i.test(shortUrl)) return;
 
@@ -352,7 +353,10 @@ export async function curarProduto(formData: FormData) {
     return;
   }
 
-  await supabase.from("produtos").update({ status: "curado" }).eq("id", produtoId);
+  // marca curado e grava a categoria escolhida (se veio) num passo só
+  const patch: { status: string; categoria?: string } = { status: "curado" };
+  if (categoria) patch.categoria = categoria;
+  await supabase.from("produtos").update(patch).eq("id", produtoId);
   revalidar();
 }
 
