@@ -209,6 +209,9 @@ function CardRascunho({ p }: { p: PostRow }) {
           </button>
         </form>
         <CopiarConteudo texto={legendaPronta(p)} rotulo="Copiar legenda" variante="secundario" />
+        {p.roteiro && (
+          <CopiarConteudo texto={p.roteiro} rotulo="Copiar roteiro" variante="secundario" />
+        )}
         <form action={regerarPost}>
           <input type="hidden" name="postId" value={p.id} />
           <button
