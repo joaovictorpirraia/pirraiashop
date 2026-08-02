@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { brl } from "@/lib/format";
+import { CATEGORIAS } from "@/lib/categorias";
 import {
   curarProduto,
   descartarProduto,
@@ -311,6 +312,24 @@ function FilaCard({ p }: { p: ProdutoNovo }) {
         className="flex flex-col gap-2 border-t border-black/5 bg-areia/60 p-4 sm:flex-row sm:items-end"
       >
         <input type="hidden" name="produtoId" value={p.id} />
+        <label className="flex-1 text-xs font-medium text-fumo">
+          Categoria
+          <select
+            name="categoria"
+            defaultValue={p.categoria ?? ""}
+            className="mt-1 w-full rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-sm text-tinta outline-none focus:border-pirraia"
+          >
+            <option value="">— sem categoria —</option>
+            {CATEGORIAS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+            {p.categoria && !CATEGORIAS.includes(p.categoria) && (
+              <option value={p.categoria}>{p.categoria}</option>
+            )}
+          </select>
+        </label>
         <label className="flex-1 text-xs font-medium text-fumo">
           Slug
           <input
