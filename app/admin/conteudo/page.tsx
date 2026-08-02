@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import {
   aprovarPost,
+  aprovarTodosRascunhos,
   descartarPost,
   marcarPublicado,
   gerarConteudoAgora,
@@ -100,9 +101,20 @@ export default async function Conteudo({
 
       <main className="mx-auto max-w-3xl px-5 py-8">
         {/* abas */}
-        <div className="mb-5 flex gap-2">
+        <div className="mb-5 flex flex-wrap items-center gap-2">
           <Aba href="/admin/conteudo" ativa={tab === "rascunhos"} rotulo="Rascunhos" n={nRascunhos ?? 0} />
           <Aba href="/admin/conteudo?tab=aprovados" ativa={tab === "aprovados"} rotulo="Aprovados" n={nAprovados ?? 0} />
+          {tab === "rascunhos" && (nRascunhos ?? 0) > 0 && (
+            <form action={aprovarTodosRascunhos} className="ml-auto">
+              <button
+                type="submit"
+                className="rounded-full bg-pirraia px-4 py-1.5 text-sm font-bold text-white transition-colors hover:bg-pirraia-dark"
+                title="Move todos os rascunhos pra Aprovados de uma vez"
+              >
+                Aprovar todos ({nRascunhos})
+              </button>
+            </form>
+          )}
         </div>
 
         {posts.length === 0 ? (

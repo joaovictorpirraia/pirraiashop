@@ -40,6 +40,15 @@ export async function aprovarPost(formData: FormData) {
   revalidatePath("/admin/conteudo");
 }
 
+/** Aprova todos os rascunhos de uma vez. Reversível (é só mudar de status). */
+export async function aprovarTodosRascunhos() {
+  await supabaseAdmin()
+    .from("posts")
+    .update({ status: "aprovado" })
+    .eq("status", "rascunho");
+  revalidatePath("/admin/conteudo");
+}
+
 /** Descarta um post: apaga a linha (libera o produto pra gerar de novo). */
 export async function descartarPost(formData: FormData) {
   const postId = Number(formData.get("postId"));
