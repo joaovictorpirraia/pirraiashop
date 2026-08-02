@@ -10,9 +10,11 @@ import { useState } from "react";
 export function CopiarConteudo({
   texto,
   rotulo = "Copiar",
+  variante = "primario",
 }: {
   texto: string;
   rotulo?: string;
+  variante?: "primario" | "secundario";
 }) {
   const [copiado, setCopiado] = useState(false);
 
@@ -44,6 +46,22 @@ export function CopiarConteudo({
     } else {
       fallback();
     }
+  }
+
+  if (variante === "secundario") {
+    return (
+      <button
+        type="button"
+        onClick={copiar}
+        className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+          copiado
+            ? "border-emerald-300 text-emerald-700"
+            : "border-black/10 text-tinta hover:bg-areia"
+        }`}
+      >
+        {copiado ? "Copiado ✓" : rotulo}
+      </button>
+    );
   }
 
   return (
