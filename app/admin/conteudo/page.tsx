@@ -208,6 +208,7 @@ function CardRascunho({ p }: { p: PostRow }) {
             Aprovar
           </button>
         </form>
+        <CopiarConteudo texto={legendaPronta(p)} rotulo="Copiar legenda" variante="secundario" />
         <form action={regerarPost}>
           <input type="hidden" name="postId" value={p.id} />
           <button
