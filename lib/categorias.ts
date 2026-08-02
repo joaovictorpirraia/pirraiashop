@@ -4,17 +4,14 @@
  * ("Casa" vs "casa" vs "Casa e Cozinha"). Usada no seletor da curadoria.
  * Pode crescer — só manter nomes consistentes.
  */
+// Alinhada com o catálogo real (normalizado em ago/2026). Ordem ~ por peso.
 export const CATEGORIAS: string[] = [
-  "Casa e Cozinha",
-  "Organização",
-  "Beleza",
-  "Eletrônicos",
-  "Celular e Acessórios",
+  "Casa",
+  "Relógios",
   "Áudio e Vídeo",
-  "Moda",
-  "Fitness e Esporte",
-  "Pet",
-  "Infantil",
+  "Beleza",
+  "Celular",
+  "Eletrônicos",
   "Utilidades",
-  "Ferramentas",
+  "Moda",
 ];
