@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { baixarMidia } from "./actions";
 
+const ehVideo = (u: string) => /\.mp4(\?|$)/i.test(u) || /vod\.susercontent/i.test(u);
+
+type Aba = "tudo" | "imagens" | "videos";
+
 /**
  * Recebe as URLs de mídia coletadas pelo bookmarklet na página da Shopee
  * (no fragmento # da URL). Mostra as fotos numa grade selecionável — o dono
@@ -15,6 +19,7 @@ export default function Midia() {
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const [estado, setEstado] = useState<"lendo" | "pronto" | "vazio" | "baixando">("lendo");
   const [erro, setErro] = useState("");
+  const [aba, setAba] = useState<Aba>("tudo");
 
   useEffect(() => {
     const raw = window.location.hash.slice(1);
@@ -38,7 +43,19 @@ export default function Midia() {
     }
   }, []);
 
+  const imagens = urls.filter((u) => !ehVideo(u));
+  const videos = urls.filter(ehVideo);
+  const visiveis = aba === "imagens" ? imagens : aba === "videos" ? videos : urls;
   const selecionadas = urls.filter((u) => sel[u]);
+
+  // "Marcar todas" / "Limpar" agem sobre o que está visível na aba atual
+  function marcarVisiveis(v: boolean) {
+    setSel((s) => {
+      const n = { ...s };
+      for (const u of visiveis) n[u] = v;
+      return n;
+    });
+  }
 
   async function baixar() {
     if (selecionadas.length === 0) return;
@@ -100,13 +117,13 @@ export default function Midia() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setSel(Object.fromEntries(urls.map((u) => [u, true])))}
+                  onClick={() => marcarVisiveis(true)}
                   className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
                 >
-                  Marcar todas
+                  Marcar {aba === "tudo" ? "todas" : "visíveis"}
                 </button>
                 <button
-                  onClick={() => setSel({})}
+                  onClick={() => marcarVisiveis(false)}
                   className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
                 >
                   Limpar
@@ -121,6 +138,27 @@ export default function Midia() {
               </div>
             </div>
 
+            {/* abas por tipo */}
+            <div className="mb-4 flex gap-2">
+              {(
+                [
+                  { id: "tudo", rotulo: "Tudo", n: urls.length },
+                  { id: "imagens", rotulo: "Imagens", n: imagens.length },
+                  { id: "videos", rotulo: "Vídeos", n: videos.length },
+                ] as { id: Aba; rotulo: string; n: number }[]
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setAba(t.id)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                    aba === t.id ? "bg-tinta text-white" : "bg-white text-fumo shadow-carta hover:text-tinta"
+                  }`}
+                >
+                  {t.rotulo} <span className="tabular-nums opacity-70">{t.n}</span>
+                </button>
+              ))}
+            </div>
+
             {erro && (
               <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
                 {erro}
@@ -132,9 +170,14 @@ export default function Midia() {
               resto. Clique numa foto pra marcar/desmarcar.
             </p>
 
+            {visiveis.length === 0 ? (
+              <p className="rounded-2xl bg-white p-8 text-center text-sm text-fumo shadow-carta">
+                {aba === "videos" ? "Nenhum vídeo nesta página." : "Nada aqui."}
+              </p>
+            ) : (
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {urls.map((u) => {
-                const ehVideo = /\.mp4(\?|$)/i.test(u) || /vod\.susercontent/i.test(u);
+              {visiveis.map((u) => {
+                const eVid = ehVideo(u);
                 return (
                   <button
                     key={u}
@@ -144,7 +187,7 @@ export default function Midia() {
                       sel[u] ? "border-pirraia" : "border-transparent opacity-45"
                     }`}
                   >
-                    {ehVideo ? (
+                    {eVid ? (
                       <video
                         src={u}
                         muted
@@ -156,7 +199,7 @@ export default function Midia() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={u} alt="" className="h-full w-full object-cover" />
                     )}
-                    {ehVideo && (
+                    {eVid && (
                       <span className="absolute left-1 top-1 rounded bg-black/70 px-1 py-0.5 text-[10px] font-bold text-white">
                         🎬 vídeo
                       </span>
@@ -170,6 +213,7 @@ export default function Midia() {
                 );
               })}
             </div>
+            )}
           </>
         )}
       </main>
