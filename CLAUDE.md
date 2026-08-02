@@ -44,9 +44,17 @@ configurado): cada merge na `main` precisa de um Deploy no painel.
   responde 503 até `SHOPEE_APP_ID`/`SECRET` existirem.
 - Rotas de API devolvem `200 {ok:false, erro}` em falha (o proxy do EasyPanel mascara 5xx).
 
-- **Emitir o SSL** Let's Encrypt no EasyPanel (aba SSL) — visitante ainda vê "não seguro".
-- **Trocar os 5 produtos falsos do seed por reais** (já dá pelo `+ Produto`) antes de mandar tráfego.
+### Falta / pendências
+- **Trocar os produtos de exemplo por reais** (o botão "Limpar exemplos" já tirou os do seed; usar
+  o `+ Produto` pra popular). Em ago/2026 a vitrine tinha só 1 real (Carregador Elgin).
 - Senha do admin mais forte; auto-deploy no EasyPanel (opcional).
+- (Opcional) `www` redirecionar pro apex — hoje os dois abrem soltos, cada um com cert válido.
+
+### Resolvido
+- **SSL** (ago/2026): Let's Encrypt válido no apex **e** no `www` (adicionado depois). O apex tem
+  nota A no SSL Labs. Atenção: a máquina do dono roda **Norton com interceptação de TLS** — no PC
+  dele o cert aparece reassinado por "Norton Web/Mail Shield" e pode dizer "não confiável", mas é só
+  local; o público recebe o Let's Encrypt real. Link da bio = `https://pirraiashop.com.br` (sem www).
 
 ### Esperando de fora
 - **Open API da Shopee** (aprovação 5–15 dias) → liga a ingestão automática e o relatório de ROI.
