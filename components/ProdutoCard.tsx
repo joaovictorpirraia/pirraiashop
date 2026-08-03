@@ -2,12 +2,19 @@ import Image from "next/image";
 import type { VitrineItem } from "@/lib/types";
 import { brl, nota } from "@/lib/format";
 import { LojaBotao } from "./LojaBotao";
+import { CompartilharBotao } from "./CompartilharBotao";
 
 export function ProdutoCard({ item }: { item: VitrineItem }) {
   const avaliacao = nota(item.avaliacao);
 
   return (
-    <a href={`/r/${item.slug}`} className="group block">
+    <div className="group relative">
+      <CompartilharBotao
+        slug={item.slug}
+        titulo={item.titulo}
+        className="absolute right-2 top-2 z-10"
+      />
+      <a href={`/r/${item.slug}`} className="block">
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-white shadow-carta">
         {item.imagem_url && (
           <Image
@@ -54,7 +61,8 @@ export function ProdutoCard({ item }: { item: VitrineItem }) {
 
         <LojaBotao loja={item.loja} className="mt-2.5" />
       </div>
-    </a>
+      </a>
+    </div>
   );
 }
 

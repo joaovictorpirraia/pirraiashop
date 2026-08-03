@@ -4,6 +4,7 @@ import type { VitrineItem } from "@/lib/types";
 import { brl, nota } from "@/lib/format";
 import { Grade } from "@/components/Grade";
 import { LojaBotao } from "@/components/LojaBotao";
+import { CompartilharBotao } from "@/components/CompartilharBotao";
 import { PixelTrack } from "@/components/PixelTrack";
 
 export const dynamic = "force-dynamic";
@@ -76,11 +77,17 @@ function Hero({ item }: { item: VitrineItem }) {
   const avaliacao = nota(item.avaliacao);
 
   return (
-    <a
-      href={`/r/${item.slug}`}
-      className="group block overflow-hidden rounded-3xl bg-white shadow-carta"
-    >
-      <div className="relative aspect-[4/5] sm:aspect-[3/2]">
+    <div className="group relative">
+      <CompartilharBotao
+        slug={item.slug}
+        titulo={item.titulo}
+        className="absolute right-4 top-4 z-20"
+      />
+      <a
+        href={`/r/${item.slug}`}
+        className="block overflow-hidden rounded-3xl bg-white shadow-carta"
+      >
+        <div className="relative aspect-[4/5] sm:aspect-[3/2]">
           {item.imagem_url && (
             <Image
               src={item.imagem_url}
@@ -95,7 +102,7 @@ function Hero({ item }: { item: VitrineItem }) {
             Achado da vez
           </span>
           {item.desconto_pct != null && item.desconto_pct > 0 && (
-            <span className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1 text-sm font-extrabold text-pirraia shadow-sm">
+            <span className="absolute left-4 top-14 rounded-full bg-white/95 px-3 py-1 text-sm font-extrabold text-pirraia shadow-sm">
               -{item.desconto_pct}%
             </span>
           )}
@@ -135,6 +142,7 @@ function Hero({ item }: { item: VitrineItem }) {
           <LojaBotao loja={item.loja} grande className="mt-4" />
         </div>
       </a>
+    </div>
   );
 }
 
