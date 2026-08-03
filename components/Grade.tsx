@@ -13,9 +13,17 @@ const LOJA_ROTULO: Record<string, string> = {
   tiktok: "TikTok Shop",
 };
 
+/** minúsculo e sem acento — pra busca "contém" tolerante no português */
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
 export function Grade({ itens }: { itens: VitrineItem[] }) {
   const [fonte, setFonte] = useState<string>(TODAS);
   const [ativa, setAtiva] = useState<string>(TODOS);
+  const [busca, setBusca] = useState<string>("");
 
   // lojas presentes (só mostra o seletor de fonte se houver mais de uma)
   const lojas = useMemo(() => {
@@ -35,10 +43,14 @@ export function Grade({ itens }: { itens: VitrineItem[] }) {
     return [TODOS, ...Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"))];
   }, [porFonte]);
 
-  const visiveis = useMemo(
-    () => porFonte.filter((i) => ativa === TODOS || i.categoria === ativa),
-    [porFonte, ativa],
-  );
+  const visiveis = useMemo(() => {
+    const q = norm(busca.trim());
+    return porFonte.filter((i) => {
+      const okCat = ativa === TODOS || i.categoria === ativa;
+      const okBusca = !q || norm(i.titulo).includes(q);
+      return okCat && okBusca;
+    });
+  }, [porFonte, ativa, busca]);
 
   function trocarFonte(f: string) {
     setFonte(f);
@@ -48,6 +60,27 @@ export function Grade({ itens }: { itens: VitrineItem[] }) {
   return (
     <section>
       <div className="sticky top-14 z-20 -mx-5 space-y-2 bg-areia/90 px-5 py-3 backdrop-blur">
+        {/* busca por nome do produto (contém) */}
+        <div className="relative">
+          <SearchIcon />
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por nome do produto…"
+            className="w-full rounded-full border border-black/10 bg-white py-2 pl-9 pr-9 text-sm text-tinta outline-none placeholder:text-fumo focus:border-pirraia"
+          />
+          {busca && (
+            <button
+              type="button"
+              onClick={() => setBusca("")}
+              aria-label="Limpar busca"
+              className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-fumo hover:bg-areia"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
         {/* seletor de loja (só quando há mais de uma) */}
         {lojas.length > 1 && (
           <div className="no-scrollbar flex gap-2 overflow-x-auto">
@@ -92,10 +125,29 @@ export function Grade({ itens }: { itens: VitrineItem[] }) {
 
       {visiveis.length === 0 && (
         <p className="py-16 text-center text-sm text-fumo">
-          Nada em {ativa === TODOS ? LOJA_ROTULO[fonte] ?? "" : ativa} por enquanto. Volta já já.
+          {busca.trim()
+            ? `Nenhum achado com “${busca.trim()}”.`
+            : `Nada em ${ativa === TODOS ? LOJA_ROTULO[fonte] ?? "" : ativa} por enquanto. Volta já já.`}
         </p>
       )}
     </section>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      aria-hidden
+      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fumo"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <circle cx="9" cy="9" r="6" />
+      <path d="M14 14l3.5 3.5" />
+    </svg>
   );
 }
 
