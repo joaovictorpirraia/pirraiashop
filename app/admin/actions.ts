@@ -104,6 +104,7 @@ export async function capturarProduto(dados: {
   categoria?: string | null;
   loja_nome?: string | null;
   origem?: string;
+  short_url?: string;
 }): Promise<{ ok: boolean; id?: number; titulo?: string; erro?: string }> {
   const titulo = String(dados.titulo ?? "").trim();
   const imagemUrl = String(dados.imagem_url ?? "").trim();
@@ -111,6 +112,10 @@ export async function capturarProduto(dados: {
   if (!titulo || !imagemUrl || !Number.isFinite(preco) || preco <= 0) {
     return { ok: false, erro: "faltou título, imagem ou preço válido" };
   }
+
+  // link de afiliado capturado (ex.: meli.la da janela "Compartilhar" do ML) — opcional
+  const linkBruto = String(dados.short_url ?? "").trim();
+  const linkAfiliado = /^https?:\/\//i.test(linkBruto) ? linkBruto : null;
 
   const url = String(dados.url_produto ?? "").trim();
   // detecta a fonte pela origem enviada ou pelo host da URL
@@ -139,21 +144,27 @@ export async function capturarProduto(dados: {
       : null;
   const desconto = precoAntigo ? Math.round((1 - preco / precoAntigo) * 100) : null;
 
+  // só inclui link_afiliado quando veio um: re-captura sem link não apaga o que já tinha
+  const row: Record<string, unknown> = {
+    origem,
+    item_id: itemId,
+    shop_id: shopId,
+    titulo,
+    categoria: dados.categoria?.trim() || null,
+    preco,
+    preco_antigo: precoAntigo,
+    desconto_pct: desconto,
+    imagem_url: imagemUrl,
+    url_produto: url || null,
+    loja_nome: dados.loja_nome?.trim() || null,
+  };
+  if (linkAfiliado) row.link_afiliado = linkAfiliado;
+
   const { data, error } = await supabaseAdmin()
     .from("produtos")
     .upsert(
       {
-        origem,
-        item_id: itemId,
-        shop_id: shopId,
-        titulo,
-        categoria: dados.categoria?.trim() || null,
-        preco,
-        preco_antigo: precoAntigo,
-        desconto_pct: desconto,
-        imagem_url: imagemUrl,
-        url_produto: url || null,
-        loja_nome: dados.loja_nome?.trim() || null,
+        ...row,
         // sem `status`: insert vira 'novo' (fila); update preserva o status atual
       },
       { onConflict: "origem,item_id,shop_id" },

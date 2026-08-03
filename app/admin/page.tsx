@@ -27,6 +27,7 @@ interface ProdutoNovo {
   imagem_url: string | null;
   loja_nome: string | null;
   url_produto: string | null;
+  link_afiliado: string | null;
   score_ia: number | null;
 }
 
@@ -65,7 +66,7 @@ export default async function Admin({
   const { data: filaRaw } = await supabase
     .from("produtos")
     .select(
-      "id, origem, titulo, categoria, preco, preco_antigo, desconto_pct, imagem_url, loja_nome, url_produto, score_ia",
+      "id, origem, titulo, categoria, preco, preco_antigo, desconto_pct, imagem_url, loja_nome, url_produto, link_afiliado, score_ia",
     )
     .eq("status", "novo")
     .order("score_ia", { ascending: false, nullsFirst: false })
@@ -343,7 +344,12 @@ function FilaCard({ p }: { p: ProdutoNovo }) {
           <input
             name="shortUrl"
             required
-            placeholder="https://s.shopee.com.br/..."
+            defaultValue={p.link_afiliado ?? ""}
+            placeholder={
+              p.origem === "mercadolivre"
+                ? "https://meli.la/... (seu link de afiliado)"
+                : "https://s.shopee.com.br/..."
+            }
             className="mt-1 w-full rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-sm text-tinta outline-none focus:border-pirraia"
           />
         </label>
