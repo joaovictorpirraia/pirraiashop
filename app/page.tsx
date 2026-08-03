@@ -62,9 +62,11 @@ function Header() {
     <header className="sticky top-0 z-30 h-14 border-b border-black/5 bg-areia/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-5 lg:max-w-7xl">
         <span className="text-xl font-extrabold tracking-tight text-tinta">
-          pirraia<span className="text-pirraia">.</span>
+          pirraiashop<span className="text-pirraia">.</span>com.br
         </span>
-        <span className="text-xs font-medium text-fumo">achadinhos garimpados</span>
+        <span className="hidden text-xs font-medium text-fumo sm:block">
+          achadinhos garimpados e testados para quem gosta de ofertas
+        </span>
       </div>
     </header>
   );
