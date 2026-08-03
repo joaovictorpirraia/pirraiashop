@@ -191,7 +191,14 @@ select
   p.imagem_url,
   p.loja_nome,
   p.avaliacao,
-  p.origem
+  p.origem,
+  -- loja de destino, derivada do link de afiliado (produto 'manual' pode ter link Shopee)
+  case
+    when l.short_url ilike '%shopee%' then 'shopee'
+    when l.short_url ilike '%meli.la%' or l.short_url ilike '%mercadoli%' then 'mercadolivre'
+    when l.short_url ilike '%tiktok%' then 'tiktok'
+    else p.origem
+  end as loja
 from links l
 join produtos p on p.id = l.produto_id
 where l.ativo = true
