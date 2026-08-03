@@ -6,6 +6,8 @@ const nextConfig = {
       { protocol: "https", hostname: "cf.shopee.com.br" },
       { protocol: "https", hostname: "down-br.img.susercontent.com" },
       { protocol: "https", hostname: "**.susercontent.com" },
+      // CDN do Mercado Livre
+      { protocol: "https", hostname: "**.mlstatic.com" },
       // placeholder dos produtos falsos do seed — remover quando entrar catálogo real
       { protocol: "https", hostname: "picsum.photos" },
     ],

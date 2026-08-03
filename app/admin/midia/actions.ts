@@ -4,11 +4,12 @@ import JSZip from "jszip";
 
 /**
  * Baixa as mídias de um produto (URLs coletadas pelo bookmarklet na página da
- * Shopee) e devolve um .zip em base64 pro cliente salvar. Só busca do CDN da
- * Shopee (susercontent.com) — allowlist de host pra o servidor não virar proxy
- * de URL arbitrária. O CDN de imagem não é bloqueado (ao contrário da API).
+ * Shopee ou do Mercado Livre) e devolve um .zip em base64 pro cliente salvar.
+ * Só busca dos CDNs da Shopee (susercontent.com) e do ML (mlstatic.com) —
+ * allowlist de host pra o servidor não virar proxy de URL arbitrária. Os CDNs de
+ * imagem não são bloqueados (ao contrário das APIs/páginas).
  */
-const HOST_OK = /(^|\.)susercontent\.com$/i;
+const HOST_OK = /(^|\.)(susercontent|mlstatic)\.com$/i;
 
 function extDe(ct: string): string {
   if (ct.includes("webp")) return "webp";

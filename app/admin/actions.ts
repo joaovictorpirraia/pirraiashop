@@ -103,6 +103,7 @@ export async function capturarProduto(dados: {
   url_produto?: string;
   categoria?: string | null;
   loja_nome?: string | null;
+  origem?: string;
 }): Promise<{ ok: boolean; id?: number; titulo?: string; erro?: string }> {
   const titulo = String(dados.titulo ?? "").trim();
   const imagemUrl = String(dados.imagem_url ?? "").trim();
@@ -112,13 +113,25 @@ export async function capturarProduto(dados: {
   }
 
   const url = String(dados.url_produto ?? "").trim();
-  // extrai shopid/itemid da URL da Shopee (várias formas) pra dedup; senão gera um id
-  const m =
-    url.match(/-i\.(\d+)\.(\d+)/) ||
-    url.match(/\/product\/(\d+)\/(\d+)/) ||
-    url.match(/\/(\d{6,})\/(\d{6,})(?:[/?#]|$)/);
-  const shopId = m ? Number(m[1]) : 0;
-  const itemId = m ? Number(m[2]) : Date.now();
+  // detecta a fonte pela origem enviada ou pelo host da URL
+  const ehML = dados.origem === "mercadolivre" || /mercadoli(vre|bre)\.com/i.test(url);
+  let origem = "shopee";
+  let shopId = 0;
+  let itemId = Date.now();
+  if (ehML) {
+    // ML: id do produto/catálogo (MLB\d+) da URL, pra dedup. Sem shop_id → 0.
+    origem = "mercadolivre";
+    const m = url.match(/MLB-?(\d+)/i);
+    itemId = m ? Number(m[1]) : Date.now();
+  } else {
+    // Shopee: shopid/itemid em várias formas de URL.
+    const m =
+      url.match(/-i\.(\d+)\.(\d+)/) ||
+      url.match(/\/product\/(\d+)\/(\d+)/) ||
+      url.match(/\/(\d{6,})\/(\d{6,})(?:[/?#]|$)/);
+    shopId = m ? Number(m[1]) : 0;
+    itemId = m ? Number(m[2]) : Date.now();
+  }
 
   const precoAntigo =
     dados.preco_antigo != null && Number(dados.preco_antigo) > preco
@@ -130,7 +143,7 @@ export async function capturarProduto(dados: {
     .from("produtos")
     .upsert(
       {
-        origem: "shopee",
+        origem,
         item_id: itemId,
         shop_id: shopId,
         titulo,
