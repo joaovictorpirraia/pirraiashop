@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { VitrineItem } from "@/lib/types";
 import { brl, nota } from "@/lib/format";
+import { LojaBotao } from "./LojaBotao";
 
 export function ProdutoCard({ item }: { item: VitrineItem }) {
   const avaliacao = nota(item.avaliacao);
@@ -51,10 +52,7 @@ export function ProdutoCard({ item }: { item: VitrineItem }) {
           </span>
         </div>
 
-        <span className="mt-2.5 flex items-center justify-center gap-1 rounded-full bg-tinta py-2 text-sm font-bold text-white transition-colors group-hover:bg-pirraia">
-          Ver na Shopee
-          <ArrowIcon />
-        </span>
+        <LojaBotao loja={item.loja} className="mt-2.5" />
       </div>
     </a>
   );
@@ -64,23 +62,6 @@ function StarIcon() {
   return (
     <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 fill-pirraia" aria-hidden>
       <path d="M10 1.6l2.47 5.01 5.53.8-4 3.9.94 5.5L10 14.2l-4.95 2.6.95-5.5-4-3.9 5.53-.8z" />
-    </svg>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      className="h-3.5 w-3.5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M6 3l5 5-5 5" />
     </svg>
   );
 }

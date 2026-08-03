@@ -3,6 +3,7 @@ import { supabasePublic } from "@/lib/supabase";
 import type { VitrineItem } from "@/lib/types";
 import { brl, nota } from "@/lib/format";
 import { Grade } from "@/components/Grade";
+import { LojaBotao } from "@/components/LojaBotao";
 import { PixelTrack } from "@/components/PixelTrack";
 
 export const dynamic = "force-dynamic";
@@ -15,15 +16,20 @@ export default async function Home() {
     .returns<VitrineItem[]>();
 
   const itens = data ?? [];
-  const destaque = itens.find((i) => i.destaque) ?? itens[0];
-  const resto = destaque ? itens.filter((i) => i.slug !== destaque.slug) : itens;
+  // até 2 destaques: os marcados; se faltar, completa com os primeiros da lista
+  const marcados = itens.filter((i) => i.destaque);
+  const destaques = (
+    marcados.length >= 2 ? marcados : [...marcados, ...itens.filter((i) => !i.destaque)]
+  ).slice(0, 2);
+  const slugsDestaque = new Set(destaques.map((d) => d.slug));
+  const resto = itens.filter((i) => !slugsDestaque.has(i.slug));
 
   return (
     <div className="min-h-screen">
       <PixelTrack event="ViewContent" params={{ content_name: "vitrine" }} />
       <Header />
 
-      <main className="mx-auto max-w-3xl px-5 pb-16">
+      <main className="mx-auto max-w-3xl px-5 pb-16 lg:max-w-7xl">
         {error ? (
           <p className="py-20 text-center text-sm text-fumo">
             Deu ruim ao carregar os achados. Recarrega a página.
@@ -34,7 +40,13 @@ export default async function Home() {
           </p>
         ) : (
           <>
-            {destaque && <Hero item={destaque} />}
+            {destaques.length > 0 && (
+              <section className="grid gap-5 pb-8 pt-5 lg:grid-cols-2">
+                {destaques.map((d) => (
+                  <Hero key={d.slug} item={d} />
+                ))}
+              </section>
+            )}
             <Grade itens={resto} />
           </>
         )}
@@ -48,7 +60,7 @@ export default async function Home() {
 function Header() {
   return (
     <header className="sticky top-0 z-30 h-14 border-b border-black/5 bg-areia/90 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-5">
+      <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-5 lg:max-w-7xl">
         <span className="text-xl font-extrabold tracking-tight text-tinta">
           pirraia<span className="text-pirraia">.</span>
         </span>
@@ -62,12 +74,11 @@ function Hero({ item }: { item: VitrineItem }) {
   const avaliacao = nota(item.avaliacao);
 
   return (
-    <section className="pb-8 pt-5">
-      <a
-        href={`/r/${item.slug}`}
-        className="group block overflow-hidden rounded-3xl bg-white shadow-carta"
-      >
-        <div className="relative aspect-[4/5] sm:aspect-[3/2]">
+    <a
+      href={`/r/${item.slug}`}
+      className="group block overflow-hidden rounded-3xl bg-white shadow-carta"
+    >
+      <div className="relative aspect-[4/5] sm:aspect-[3/2]">
           {item.imagem_url && (
             <Image
               src={item.imagem_url}
@@ -119,31 +130,16 @@ function Hero({ item }: { item: VitrineItem }) {
             </span>
           </div>
 
-          <span className="mt-4 flex items-center justify-center gap-1.5 rounded-full bg-pirraia py-3 text-base font-bold text-white transition-colors group-hover:bg-pirraia-dark">
-            Ver na Shopee
-            <svg
-              viewBox="0 0 16 16"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M6 3l5 5-5 5" />
-            </svg>
-          </span>
+          <LojaBotao loja={item.loja} grande className="mt-4" />
         </div>
       </a>
-    </section>
   );
 }
 
 function Rodape() {
   return (
     <footer className="border-t border-black/5 bg-white">
-      <div className="mx-auto max-w-3xl px-5 py-8">
+      <div className="mx-auto max-w-3xl px-5 py-8 lg:max-w-7xl">
         <p className="text-xs leading-relaxed text-fumo">
           Esta página contém links de afiliado. Ao comprar por eles você não paga
           nada a mais — a comissão vem da loja, não de você.

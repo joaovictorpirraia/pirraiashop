@@ -13,4 +13,6 @@ export interface VitrineItem {
   loja_nome: string | null;
   avaliacao: string | number | null;
   origem: string;
+  // loja de destino, derivada do link de afiliado (shopee/mercadolivre/tiktok)
+  loja: string;
 }
