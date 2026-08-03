@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { brl } from "@/lib/format";
 
 /**
  * Botão de compartilhar por produto. O link compartilhado é o redirect
@@ -15,17 +16,26 @@ const BASE = "https://pirraiashop.com.br";
 export function CompartilharBotao({
   slug,
   titulo,
+  preco = null,
+  descontoPct = null,
   className = "",
 }: {
   slug: string;
   titulo: string;
+  preco?: string | number | null;
+  descontoPct?: number | null;
   className?: string;
 }) {
   const [aberto, setAberto] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
   const url = `${BASE}/r/${slug}`;
-  const msg = titulo;
+  // "Título — R$ 29,60 (-26%) 👉"
+  const linhaPreco =
+    preco != null
+      ? ` — ${brl(preco)}${descontoPct != null && descontoPct > 0 ? ` (-${descontoPct}%)` : ""}`
+      : "";
+  const msg = `${titulo}${linhaPreco} 👉`;
 
   const alvos = [
     { nome: "WhatsApp", href: `https://wa.me/?text=${encodeURIComponent(`${msg} ${url}`)}` },

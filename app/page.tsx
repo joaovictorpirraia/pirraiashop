@@ -81,6 +81,8 @@ function Hero({ item }: { item: VitrineItem }) {
       <CompartilharBotao
         slug={item.slug}
         titulo={item.titulo}
+        preco={item.preco}
+        descontoPct={item.desconto_pct}
         className="absolute right-4 top-4 z-20"
       />
       <a

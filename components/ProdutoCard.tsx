@@ -12,6 +12,8 @@ export function ProdutoCard({ item }: { item: VitrineItem }) {
       <CompartilharBotao
         slug={item.slug}
         titulo={item.titulo}
+        preco={item.preco}
+        descontoPct={item.desconto_pct}
         className="absolute right-2 top-2 z-10"
       />
       <a href={`/r/${item.slug}`} className="block">
