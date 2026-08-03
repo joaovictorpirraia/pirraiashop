@@ -1,7 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { brl } from "@/lib/format";
-import { CATEGORIAS } from "@/lib/categorias";
 import {
   curarProduto,
   descartarProduto,
@@ -88,6 +87,13 @@ export default async function Admin({
     .like("url_produto", "https://shopee.com.br/produto-%")
     .neq("status", "descartado");
 
+  // lista de categorias (gerida em /admin/categorias) pro seletor do Curar
+  const { data: catsRaw } = await supabase
+    .from("categorias")
+    .select("nome")
+    .order("ordem", { ascending: true });
+  const categorias = (catsRaw ?? []).map((c) => c.nome as string);
+
   const fila = (filaRaw ?? []) as ProdutoNovo[];
   const vitrine = ((linksRaw ?? []) as unknown[])
     .map((l) => {
@@ -120,6 +126,12 @@ export default async function Admin({
               className="rounded-full border border-black/10 px-3 py-1.5 font-bold text-tinta transition-colors hover:bg-white"
             >
               Conteúdo
+            </a>
+            <a
+              href="/admin/categorias"
+              className="rounded-full border border-black/10 px-3 py-1.5 font-bold text-tinta transition-colors hover:bg-white"
+            >
+              Categorias
             </a>
             <a
               href="/admin/metricas"
@@ -195,7 +207,7 @@ export default async function Admin({
           ) : (
             <ul className="space-y-4">
               {fila.map((p) => (
-                <FilaCard key={p.id} p={p} />
+                <FilaCard key={p.id} p={p} categorias={categorias} />
               ))}
             </ul>
           )}
@@ -254,7 +266,7 @@ export default async function Admin({
   );
 }
 
-function FilaCard({ p }: { p: ProdutoNovo }) {
+function FilaCard({ p, categorias }: { p: ProdutoNovo; categorias: string[] }) {
   return (
     <li className="overflow-hidden rounded-2xl bg-white shadow-carta">
       <div className="flex gap-4 p-4">
@@ -321,12 +333,12 @@ function FilaCard({ p }: { p: ProdutoNovo }) {
             className="mt-1 w-full rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-sm text-tinta outline-none focus:border-pirraia"
           >
             <option value="">— sem categoria —</option>
-            {CATEGORIAS.map((c) => (
+            {categorias.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
             ))}
-            {p.categoria && !CATEGORIAS.includes(p.categoria) && (
+            {p.categoria && !categorias.includes(p.categoria) && (
               <option value={p.categoria}>{p.categoria}</option>
             )}
           </select>
