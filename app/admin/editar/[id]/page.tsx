@@ -56,7 +56,11 @@ export default async function Editar({
               </div>
             )}
 
-            <form action={editarProduto} className="space-y-4 rounded-2xl bg-white p-5 shadow-carta">
+            <form
+              action={editarProduto}
+              autoComplete="off"
+              className="space-y-4 rounded-2xl bg-white p-5 shadow-carta"
+            >
               <input type="hidden" name="produtoId" value={p.id} />
               <input type="hidden" name="linkId" value={link.id} />
 

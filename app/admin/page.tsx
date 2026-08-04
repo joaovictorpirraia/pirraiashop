@@ -494,6 +494,7 @@ function FilaCard({ p, categorias }: { p: ProdutoNovo; categorias: string[] }) {
       {/* CURAR: cola o short_url + slug, cria o link e publica */}
       <form
         action={curarProduto}
+        autoComplete="off"
         className="flex flex-col gap-2 border-t border-black/5 bg-areia/60 p-4 sm:flex-row sm:items-end"
       >
         <input type="hidden" name="produtoId" value={p.id} />
@@ -520,6 +521,7 @@ function FilaCard({ p, categorias }: { p: ProdutoNovo; categorias: string[] }) {
           <input
             name="slug"
             defaultValue={slugify(p.titulo)}
+            autoComplete="off"
             className="mt-1 w-full rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-sm text-tinta outline-none focus:border-pirraia"
           />
         </label>
@@ -528,6 +530,7 @@ function FilaCard({ p, categorias }: { p: ProdutoNovo; categorias: string[] }) {
           <input
             name="shortUrl"
             required
+            autoComplete="off"
             defaultValue={p.link_afiliado ?? ""}
             placeholder={
               p.origem === "mercadolivre"
