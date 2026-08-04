@@ -67,13 +67,13 @@ configurado): cada merge na `main` precisa de um Deploy no painel.
   ingestão do ML, que já está pronta e testada (só o endpoint deles está fechado).
 
 ### Futuro / não construído
-- **Publicação no feed do Instagram (pronta, gated):** `lib/instagram.ts` (`publicarFotoFeed`, Graph
-  API Content Publishing, 2 passos), rota `/api/criativo/[id]` (converte a foto do produto pra JPEG
-  1080x1080 com `sharp` — a Meta exige JPEG por URL pública), action `publicarNoFeed` + botão
-  "Publicar no feed" nos aprovados (canal feed). Usa a legenda/hashtags da IA. Gated em
-  `IG_USER_ID`/`IG_ACCESS_TOKEN`; o botão só aparece quando configurado. **Falta:** conta IG Business
-  (já tem) + app na Meta com `instagram_content_publish` + **App Review**, e pôr as creds no EasyPanel.
-  Criativo JPEG validado localmente; a chamada de publish liga quando a Meta aprovar.
+- **Publicação no feed do Instagram (scaffold, gated):** `lib/instagram.ts` (`publicarFotoFeed`, Graph
+  API Content Publishing, 2 passos), rota `/api/criativo/[id]` (hoje só faz **proxy** da foto),
+  action `publicarNoFeed` + botão "Publicar no feed" nos aprovados (canal feed). Usa a legenda/hashtags
+  da IA. Gated em `IG_USER_ID`/`IG_ACCESS_TOKEN`. **Falta pra ligar:** (1) a Meta exige **JPEG** e o
+  CDN entrega webp — o `sharp` fazia a conversão mas **derrubava o build do EasyPanel** (binário nativo),
+  então foi removido; reintroduzir a conversão (sharp com binário linux certo, ou serviço externo)
+  quando for publicar de verdade; (2) app na Meta com `instagram_content_publish` + creds no EasyPanel.
 - **Story do Instagram automático NÃO dá:** a API publica a mídia do story, mas não deixa colocar o
   sticker de link clicável (bloqueio da Meta). Story fica "link na bio" ou sticker na mão.
 - **Publicação automática no TikTok** — não construído.
