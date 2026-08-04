@@ -29,6 +29,8 @@ interface ProdutoNovo {
   url_produto: string | null;
   link_afiliado: string | null;
   score_ia: number | null;
+  comissao_pct: number | string | null;
+  comissao_valor: number | string | null;
 }
 
 /** Rótulo da loja de origem pra "abrir e pegar o link de afiliado". */
@@ -66,9 +68,10 @@ export default async function Admin({
   const { data: filaRaw } = await supabase
     .from("produtos")
     .select(
-      "id, origem, titulo, categoria, preco, preco_antigo, desconto_pct, imagem_url, loja_nome, url_produto, link_afiliado, score_ia",
+      "id, origem, titulo, categoria, preco, preco_antigo, desconto_pct, imagem_url, loja_nome, url_produto, link_afiliado, score_ia, comissao_pct, comissao_valor",
     )
     .eq("status", "novo")
+    .order("comissao_pct", { ascending: false, nullsFirst: false })
     .order("score_ia", { ascending: false, nullsFirst: false })
     .order("visto_em", { ascending: false });
 
@@ -334,6 +337,15 @@ function FilaCard({ p, categorias }: { p: ProdutoNovo; categorias: string[] }) {
             {p.desconto_pct != null && (
               <span className="text-xs font-bold text-pirraia">
                 -{p.desconto_pct}%
+              </span>
+            )}
+            {p.comissao_pct != null && Number(p.comissao_pct) > 0 && (
+              <span className="ml-auto rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                {Number(p.comissao_pct).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+                {p.comissao_valor != null && Number(p.comissao_valor) > 0
+                  ? ` · ${brl(p.comissao_valor)}`
+                  : ""}{" "}
+                comissão
               </span>
             )}
           </div>
