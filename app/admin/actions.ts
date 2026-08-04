@@ -286,6 +286,15 @@ export async function capturarProduto(dados: {
  */
 export async function importarPorLink(formData: FormData) {
   const url = String(formData.get("url") ?? "").trim();
+  // ML bloqueia o servidor → não dá por link colado; manda pro bookmarklet
+  if (/mercadoli(vre|bre)\.com|meli\.la/i.test(url)) {
+    redirect(
+      "/admin?imp_erro=" +
+        encodeURIComponent(
+          'Pra Mercado Livre use o bookmarklet "Pirraia ML" (com o Compartilhar aberto) — o ML bloqueia o servidor, então não dá por link colado.',
+        ),
+    );
+  }
   const m =
     url.match(/-i\.(\d+)\.(\d+)/) ||
     url.match(/\/product\/(\d+)\/(\d+)/) ||

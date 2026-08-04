@@ -207,6 +207,10 @@ export default async function Admin({
               Importar
             </button>
           </form>
+          <p className="mt-2 text-xs text-fumo">
+            Mercado Livre não entra por link (eles bloqueiam o servidor) — use o bookmarklet
+            <span className="font-semibold text-tinta"> Pirraia ML</span> com o Compartilhar aberto.
+          </p>
           {searchParams.imp != null && (
             <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
               Importado pra vitrine: {searchParams.imp}
