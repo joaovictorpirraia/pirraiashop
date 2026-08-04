@@ -15,6 +15,55 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // || (não ??) de propósito: env var presente-mas-vazia deve cair no default
 const MODELO = process.env.CURADORIA_MODELO || "gpt-4.1-mini";
 
+/**
+ * Classifica um produto em UMA das categorias cadastradas (a taxonomia da
+ * vitrine). Usa enum no structured output pra o modelo só poder escolher uma da
+ * lista. Retorna null se não configurado, sem categorias, ou se nada serviu.
+ */
+export async function classificarCategoria(
+  titulo: string,
+  categorias: string[],
+): Promise<string | null> {
+  if (!process.env.OPENAI_API_KEY || categorias.length === 0 || !titulo.trim()) {
+    return null;
+  }
+  const client = new OpenAI();
+  try {
+    const resp = await client.chat.completions.create({
+      model: MODELO,
+      max_completion_tokens: 30,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "categoria",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: { categoria: { type: "string", enum: [...categorias, "outra"] } },
+            required: ["categoria"],
+          },
+        },
+      },
+      messages: [
+        {
+          role: "system",
+          content:
+            "Classifique o produto em UMA das categorias da lista (pelo enum). Se nenhuma servir de verdade, responda 'outra'.",
+        },
+        { role: "user", content: titulo },
+      ],
+    });
+    const parsed = JSON.parse(resp.choices[0]?.message?.content ?? "{}") as {
+      categoria?: string;
+    };
+    const c = parsed.categoria;
+    return c && c !== "outra" && categorias.includes(c) ? c : null;
+  } catch {
+    return null; // categoria opcional: falha não trava a importação
+  }
+}
+
 export interface ProdutoParaScore {
   id: number;
   titulo: string;

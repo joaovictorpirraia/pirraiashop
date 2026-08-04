@@ -157,6 +157,8 @@ export class ShopeeAffiliate {
    */
   async buscarOfertas(opts: {
     keyword?: string;
+    /** busca uma oferta específica pelo itemId (produto único) */
+    itemId?: number;
     limit?: number;
     page?: number;
     listType?: number;
@@ -166,6 +168,7 @@ export class ShopeeAffiliate {
   } = {}): Promise<Pagina<ProdutoOferta>> {
     const args: string[] = [];
     if (opts.keyword) args.push(`keyword:"${escaparGraphQL(opts.keyword)}"`);
+    if (opts.itemId) args.push(`itemId:${opts.itemId}`);
     if (opts.productCatId) args.push(`productCatId:${opts.productCatId}`);
     args.push(`limit:${Math.min(opts.limit ?? 50, 50)}`);
     args.push(`page:${opts.page ?? 1}`);

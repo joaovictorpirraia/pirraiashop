@@ -11,6 +11,7 @@ import {
   pontuarVitrine,
   importarML,
   importarShopee,
+  importarPorLink,
   limparExemplos,
 } from "./actions";
 
@@ -61,7 +62,14 @@ interface LinkVitrine {
 export default async function Admin({
   searchParams,
 }: {
-  searchParams: { ml?: string; ml_erro?: string; shopee?: string; shopee_erro?: string };
+  searchParams: {
+    ml?: string;
+    ml_erro?: string;
+    shopee?: string;
+    shopee_erro?: string;
+    imp?: string;
+    imp_erro?: string;
+  };
 }) {
   const supabase = supabaseAdmin();
 
@@ -148,6 +156,41 @@ export default async function Admin({
       </header>
 
       <main className="mx-auto max-w-3xl space-y-10 px-5 py-8">
+        {/* IMPORTAR POR LINK — cola o link do produto Shopee → vitrine pronto */}
+        <section className="rounded-2xl bg-white p-4 shadow-carta">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
+              Importar por link
+            </h2>
+            <span className="text-xs text-fumo">Shopee · vai direto pra vitrine</span>
+          </div>
+          <form action={importarPorLink} className="flex flex-col gap-2 sm:flex-row">
+            <input
+              name="url"
+              required
+              placeholder="cola o link do produto na Shopee…"
+              className="flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia"
+            />
+            <button
+              type="submit"
+              className="rounded-lg bg-[#EE4D2D] px-5 py-2 text-sm font-bold text-white transition hover:brightness-95"
+              title="Puxa dados + link de afiliado + categoria (IA) e joga na vitrine já curado."
+            >
+              Importar
+            </button>
+          </form>
+          {searchParams.imp != null && (
+            <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
+              Importado pra vitrine: {searchParams.imp}
+            </p>
+          )}
+          {searchParams.imp_erro != null && (
+            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
+              Falha ao importar: {searchParams.imp_erro}
+            </p>
+          )}
+        </section>
+
         {/* PRODUTOS DE EXEMPLO (seed) — some quando limpar */}
         {(nExemplos ?? 0) > 0 && (
           <div className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white p-4 shadow-carta sm:flex-row sm:items-center sm:justify-between">

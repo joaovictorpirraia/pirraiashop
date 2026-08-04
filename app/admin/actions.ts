@@ -5,10 +5,10 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
-import { pontuarPendentes } from "@/lib/curadoria";
+import { pontuarPendentes, classificarCategoria } from "@/lib/curadoria";
 import { buscarItens } from "@/lib/mercadolivre";
 import { ingerirItensML, ingerirOfertas } from "@/lib/ingest";
-import { ShopeeAffiliate } from "@/lib/shopee";
+import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
 
 function revalidar() {
   revalidatePath("/admin");
@@ -228,6 +228,120 @@ export async function capturarProduto(dados: {
   }
   revalidar();
   return { ok: true, id: data?.id, titulo };
+}
+
+/**
+ * Importa UM produto da Shopee pelo link → direto pra vitrine, curado.
+ * Pega os dados pela Open API (por itemId), usa o offerLink como link de afiliado,
+ * classifica a categoria com IA (nossa taxonomia) e cria produto 'curado' + link.
+ * Volta com ?imp=<titulo> ou ?imp_erro=<msg>.
+ */
+export async function importarPorLink(formData: FormData) {
+  const url = String(formData.get("url") ?? "").trim();
+  const m =
+    url.match(/-i\.(\d+)\.(\d+)/) ||
+    url.match(/\/product\/(\d+)\/(\d+)/) ||
+    url.match(/\/(\d{6,})\/(\d{6,})(?:[/?#]|$)/);
+  if (!m) redirect("/admin?imp_erro=" + encodeURIComponent("Link de produto inválido"));
+
+  const appId = process.env.SHOPEE_APP_ID;
+  const secret = process.env.SHOPEE_SECRET;
+  if (!appId || !secret) {
+    redirect("/admin?imp_erro=" + encodeURIComponent("Shopee não configurada no servidor"));
+  }
+
+  const itemId = Number(m![2]);
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  try {
+    const shopee = new ShopeeAffiliate({ appId: appId!, secret: secret! });
+    const pg = await shopee.buscarOfertas({ itemId, limit: 1 });
+    const oferta = pg.nodes[0];
+    if (!oferta) {
+      throw new Error("produto não encontrado na Open API (pode não estar no programa de afiliado)");
+    }
+
+    const linha = paraProduto(oferta);
+    // categoria via IA, na taxonomia cadastrada
+    const { data: cats } = await supabase
+      .from("categorias")
+      .select("nome")
+      .order("ordem", { ascending: true });
+    const categoria = await classificarCategoria(
+      linha.titulo,
+      (cats ?? []).map((c) => c.nome as string),
+    );
+
+    // upsert do produto já como 'curado' com a categoria
+    const { status: _status, ...resto } = linha;
+    const { data: prod, error: e1 } = await supabase
+      .from("produtos")
+      .upsert(
+        { ...resto, categoria: categoria ?? null, status: "curado" },
+        { onConflict: "origem,item_id,shop_id" },
+      )
+      .select("id")
+      .single();
+    if (e1 || !prod) throw new Error(e1?.message ?? "falha ao gravar o produto");
+
+    // cria o link (offerLink = afiliado) se ainda não tiver um ativo
+    const shortUrl = linha.link_afiliado || linha.url_produto;
+    const { data: linkAtivo } = await supabase
+      .from("links")
+      .select("id")
+      .eq("produto_id", prod.id)
+      .eq("ativo", true)
+      .maybeSingle();
+    if (!linkAtivo && shortUrl) {
+      let slug = slugify(linha.titulo).slice(0, 60) || `produto-${prod.id}`;
+      const raiz = slug;
+      for (let i = 2; i < 60; i++) {
+        const { data: existe } = await supabase
+          .from("links")
+          .select("id")
+          .eq("slug", slug)
+          .maybeSingle();
+        if (!existe) break;
+        slug = `${raiz}-${i}`;
+      }
+      const { data: ult } = await supabase
+        .from("links")
+        .select("ordem")
+        .order("ordem", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      await supabase.from("links").insert({
+        produto_id: prod.id,
+        slug,
+        short_url: shortUrl,
+        ativo: true,
+        ordem: (ult?.ordem ?? -1) + 1,
+      });
+    }
+
+    await supabase.from("execucoes").insert({
+      job: "importar_link",
+      ok: true,
+      itens: 1,
+      detalhe: { itemId, titulo: linha.titulo, categoria },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = "/admin?imp=" + encodeURIComponent(linha.titulo);
+  } catch (e) {
+    const msg = (e as Error).message;
+    await supabase.from("execucoes").insert({
+      job: "importar_link",
+      ok: false,
+      itens: 0,
+      detalhe: { itemId, erro: msg },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = "/admin?imp_erro=" + encodeURIComponent(msg);
+  }
+
+  revalidar();
+  redirect(destino);
 }
 
 /**
