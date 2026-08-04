@@ -41,6 +41,13 @@ const ORIGEM_ROTULO: Record<string, string> = {
   tiktok: "TikTok Shop",
 };
 
+/** minúsculo e sem acento — busca "contém" tolerante no português */
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+
 interface LinkVitrine {
   id: number;
   slug: string;
@@ -69,19 +76,36 @@ export default async function Admin({
     shopee_erro?: string;
     imp?: string;
     imp_erro?: string;
+    ver?: string;
+    q?: string;
   };
 }) {
   const supabase = supabaseAdmin();
+  const ver = searchParams.ver === "vitrine" ? "vitrine" : "fila";
+  const q = (searchParams.q ?? "").trim();
 
-  const { data: filaRaw } = await supabase
+  // contagem total da fila (rótulo da aba, sem filtro)
+  const { count: nFila } = await supabase
     .from("produtos")
-    .select(
-      "id, origem, titulo, categoria, preco, preco_antigo, desconto_pct, imagem_url, loja_nome, url_produto, link_afiliado, score_ia, comissao_pct, comissao_valor",
-    )
-    .eq("status", "novo")
-    .order("comissao_pct", { ascending: false, nullsFirst: false })
-    .order("score_ia", { ascending: false, nullsFirst: false })
-    .order("visto_em", { ascending: false });
+    .select("id", { count: "exact", head: true })
+    .eq("status", "novo");
+
+  // dados da fila só quando a aba é fila (evita renderizar 293 cards atoa)
+  let fila: ProdutoNovo[] = [];
+  if (ver === "fila") {
+    let fq = supabase
+      .from("produtos")
+      .select(
+        "id, origem, titulo, categoria, preco, preco_antigo, desconto_pct, imagem_url, loja_nome, url_produto, link_afiliado, score_ia, comissao_pct, comissao_valor",
+      )
+      .eq("status", "novo");
+    if (q) fq = fq.ilike("titulo", `%${q}%`);
+    const { data } = await fq
+      .order("comissao_pct", { ascending: false, nullsFirst: false })
+      .order("score_ia", { ascending: false, nullsFirst: false })
+      .order("visto_em", { ascending: false });
+    fila = (data ?? []) as ProdutoNovo[];
+  }
 
   const { data: linksRaw } = await supabase
     .from("links")
@@ -106,14 +130,18 @@ export default async function Admin({
     .order("ordem", { ascending: true });
   const categorias = (catsRaw ?? []).map((c) => c.nome as string);
 
-  const fila = (filaRaw ?? []) as ProdutoNovo[];
-  const vitrine = ((linksRaw ?? []) as unknown[])
+  const vitrineTodos = ((linksRaw ?? []) as unknown[])
     .map((l) => {
       const row = l as LinkVitrine & { produto: LinkVitrine["produto"] | LinkVitrine["produto"][] };
       const produto = Array.isArray(row.produto) ? row.produto[0] : row.produto;
       return { ...row, produto } as LinkVitrine;
     })
     .filter((l) => l.produto && ["curado", "publicado"].includes(l.produto.status));
+  const nVitrine = vitrineTodos.length;
+  const vitrine =
+    ver === "vitrine" && q
+      ? vitrineTodos.filter((l) => norm(l.produto.titulo).includes(norm(q)))
+      : vitrineTodos;
 
   return (
     <div className="min-h-screen bg-areia">
@@ -125,7 +153,7 @@ export default async function Admin({
           </span>
           <div className="flex items-center gap-3 text-xs text-fumo">
             <span>
-              {fila.length} na fila · {vitrine.length} na vitrine
+              {nFila ?? 0} na fila · {nVitrine} na vitrine
             </span>
             <a
               href="/admin/novo"
@@ -210,7 +238,53 @@ export default async function Admin({
           </div>
         )}
 
+        {/* SWITCHER Fila/Vitrine + busca por nome */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-2">
+            <a
+              href={`/admin?ver=fila${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                ver === "fila" ? "bg-tinta text-white" : "bg-white text-fumo shadow-carta hover:text-tinta"
+              }`}
+            >
+              Fila <span className="tabular-nums opacity-70">{nFila ?? 0}</span>
+            </a>
+            <a
+              href={`/admin?ver=vitrine${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                ver === "vitrine" ? "bg-tinta text-white" : "bg-white text-fumo shadow-carta hover:text-tinta"
+              }`}
+            >
+              Vitrine <span className="tabular-nums opacity-70">{nVitrine}</span>
+            </a>
+          </div>
+          <form method="get" action="/admin" className="flex flex-1 items-center gap-2">
+            <input type="hidden" name="ver" value={ver} />
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="buscar por nome do produto…"
+              className="min-w-0 flex-1 rounded-full border border-black/10 bg-white px-4 py-1.5 text-sm text-tinta outline-none focus:border-pirraia"
+            />
+            {q && (
+              <a
+                href={`/admin?ver=${ver}`}
+                className="shrink-0 text-xs font-semibold text-fumo hover:text-tinta"
+              >
+                limpar
+              </a>
+            )}
+            <button
+              type="submit"
+              className="shrink-0 rounded-full bg-tinta px-4 py-1.5 text-sm font-bold text-white transition-colors hover:bg-pirraia"
+            >
+              Buscar
+            </button>
+          </form>
+        </div>
+
         {/* FILA DE CURADORIA */}
+        {ver === "fila" && (
         <section>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
@@ -280,7 +354,9 @@ export default async function Admin({
 
           {fila.length === 0 ? (
             <p className="rounded-2xl bg-white p-6 text-center text-sm text-fumo shadow-carta">
-              Nada novo na fila. Quando a ingestão trouxer produtos, eles caem aqui.
+              {q
+                ? `Nenhum produto na fila com “${q}”.`
+                : "Nada novo na fila. Quando a ingestão trouxer produtos, eles caem aqui."}
             </p>
           ) : (
             <ul className="space-y-4">
@@ -290,14 +366,16 @@ export default async function Admin({
             </ul>
           )}
         </section>
+        )}
 
         {/* NA VITRINE */}
+        {ver === "vitrine" && (
         <section>
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
               Na vitrine
             </h2>
-            {vitrine.length > 0 && (
+            {nVitrine > 0 && (
               <div className="flex items-center gap-2">
                 <form action={pontuarVitrine}>
                   <button
@@ -308,7 +386,7 @@ export default async function Admin({
                     Pontuar com IA
                   </button>
                 </form>
-                {vitrine.length > 1 && (
+                {nVitrine > 1 && (
                   <form action={reordenarPorPerformance}>
                     <button
                       type="submit"
@@ -324,7 +402,9 @@ export default async function Admin({
           </div>
           {vitrine.length === 0 ? (
             <p className="rounded-2xl bg-white p-6 text-center text-sm text-fumo shadow-carta">
-              Nenhum produto publicado ainda. Cure algo da fila acima.
+              {q
+                ? `Nenhum produto na vitrine com “${q}”.`
+                : "Nenhum produto publicado ainda. Cure algo da fila."}
             </p>
           ) : (
             <ul className="space-y-3">
@@ -339,6 +419,7 @@ export default async function Admin({
             </ul>
           )}
         </section>
+        )}
       </main>
     </div>
   );
