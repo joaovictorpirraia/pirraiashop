@@ -10,6 +10,7 @@ import {
   reordenarPorPerformance,
   pontuarVitrine,
   importarML,
+  importarShopee,
   limparExemplos,
 } from "./actions";
 
@@ -58,7 +59,7 @@ interface LinkVitrine {
 export default async function Admin({
   searchParams,
 }: {
-  searchParams: { ml?: string; ml_erro?: string };
+  searchParams: { ml?: string; ml_erro?: string; shopee?: string; shopee_erro?: string };
 }) {
   const supabase = supabaseAdmin();
 
@@ -169,23 +170,54 @@ export default async function Admin({
             <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
               Fila de curadoria
             </h2>
-            {/* Importar do Mercado Livre por palavra-chave */}
-            <form action={importarML} className="flex items-center gap-1.5">
-              <input
-                name="q"
-                required
-                placeholder="buscar no Mercado Livre…"
-                className="w-44 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
-              />
-              <button
-                type="submit"
-                className="rounded-full bg-tinta px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-pirraia"
-                title="Busca itens no Mercado Livre e joga na fila. O link de afiliado você cola na hora de curar."
-              >
-                Importar ML
-              </button>
-            </form>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Importar da Shopee por palavra-chave (Open API) */}
+              <form action={importarShopee} className="flex items-center gap-1.5">
+                <input
+                  name="q"
+                  required
+                  placeholder="buscar na Shopee…"
+                  className="w-40 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full bg-[#EE4D2D] px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-95"
+                  title="Busca ofertas na Shopee (Open API) e joga na fila, já com o link de afiliado."
+                >
+                  Importar Shopee
+                </button>
+              </form>
+              {/* Importar do Mercado Livre por palavra-chave */}
+              <form action={importarML} className="flex items-center gap-1.5">
+                <input
+                  name="q"
+                  required
+                  placeholder="buscar no Mercado Livre…"
+                  className="w-40 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full bg-tinta px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-pirraia"
+                  title="Busca itens no Mercado Livre e joga na fila. O link de afiliado você cola na hora de curar."
+                >
+                  Importar ML
+                </button>
+              </form>
+            </div>
           </div>
+
+          {searchParams.shopee != null && (
+            <p className="mb-3 rounded-xl border border-[#EE4D2D]/20 bg-[#EE4D2D]/10 px-4 py-2.5 text-sm font-medium text-[#a8391e]">
+              Shopee: {searchParams.shopee} oferta(s) na fila.
+            </p>
+          )}
+          {searchParams.shopee_erro != null && (
+            <p className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
+              {searchParams.shopee_erro === "vazio"
+                ? "Digite uma palavra-chave pra buscar na Shopee."
+                : `Falha ao importar da Shopee: ${searchParams.shopee_erro}`}
+            </p>
+          )}
 
           {searchParams.ml != null && (
             <p className="mb-3 rounded-xl border border-pirraia/20 bg-pirraia-tint px-4 py-2.5 text-sm font-medium text-pirraia-dark">

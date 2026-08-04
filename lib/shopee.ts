@@ -294,6 +294,8 @@ export function paraProduto(o: ProdutoOferta) {
     comissao_valor: Number(o.commission ?? 0),
     imagem_url: o.imageUrl,
     url_produto: o.offerLink || o.productLink,
+    // offerLink já é o link de afiliado rastreável → pré-preenche o Curar
+    link_afiliado: o.offerLink || null,
     loja_nome: o.shopName,
     vendas: o.sales ?? 0,
     avaliacao: o.ratingStar ? Number(o.ratingStar) : null,
