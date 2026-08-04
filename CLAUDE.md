@@ -67,8 +67,16 @@ configurado): cada merge na `main` precisa de um Deploy no painel.
   ingestão do ML, que já está pronta e testada (só o endpoint deles está fechado).
 
 ### Futuro / não construído
-- **Publicação automática** no Instagram/TikTok (hoje o conteúdo é copiado e postado à mão) —
-  precisa Instagram Graph API + conta business + app review da Meta.
+- **Publicação no feed do Instagram (pronta, gated):** `lib/instagram.ts` (`publicarFotoFeed`, Graph
+  API Content Publishing, 2 passos), rota `/api/criativo/[id]` (converte a foto do produto pra JPEG
+  1080x1080 com `sharp` — a Meta exige JPEG por URL pública), action `publicarNoFeed` + botão
+  "Publicar no feed" nos aprovados (canal feed). Usa a legenda/hashtags da IA. Gated em
+  `IG_USER_ID`/`IG_ACCESS_TOKEN`; o botão só aparece quando configurado. **Falta:** conta IG Business
+  (já tem) + app na Meta com `instagram_content_publish` + **App Review**, e pôr as creds no EasyPanel.
+  Criativo JPEG validado localmente; a chamada de publish liga quando a Meta aprovar.
+- **Story do Instagram automático NÃO dá:** a API publica a mídia do story, mas não deixa colocar o
+  sticker de link clicável (bloqueio da Meta). Story fica "link na bio" ou sticker na mão.
+- **Publicação automática no TikTok** — não construído.
 - **Link de afiliado ML automático:** o ML não expõe API pública de shortlink de afiliado (mesmo
   caso da Shopee hoje). Por isso a ingestão do ML traz só os dados; o link entra manual na curadoria.
 

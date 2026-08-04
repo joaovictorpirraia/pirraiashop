@@ -6,8 +6,10 @@ import {
   marcarPublicado,
   gerarConteudoAgora,
   regerarPost,
+  publicarNoFeed,
 } from "./actions";
 import { CopiarConteudo } from "@/components/CopiarConteudo";
+import { instagramConfigurado } from "@/lib/instagram";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +51,7 @@ export default async function Conteudo({
   const supabase = supabaseAdmin();
   const tab = searchParams.tab === "aprovados" ? "aprovados" : "rascunhos";
   const status = tab === "aprovados" ? "aprovado" : "rascunho";
+  const igOn = instagramConfigurado();
 
   const [{ count: nRascunhos }, { count: nAprovados }, { data: raw }] = await Promise.all([
     supabase.from("posts").select("id", { count: "exact", head: true }).eq("status", "rascunho"),
@@ -127,7 +130,7 @@ export default async function Conteudo({
           <div className="space-y-4">
             {posts.map((p) =>
               tab === "aprovados" ? (
-                <CardAprovado key={p.id} p={p} />
+                <CardAprovado key={p.id} p={p} igOn={igOn} />
               ) : (
                 <CardRascunho key={p.id} p={p} />
               ),
@@ -254,7 +257,7 @@ function CardRascunho({ p }: { p: PostRow }) {
   );
 }
 
-function CardAprovado({ p }: { p: PostRow }) {
+function CardAprovado({ p, igOn }: { p: PostRow; igOn: boolean }) {
   return (
     <article className="overflow-hidden rounded-2xl bg-white shadow-carta">
       <Cabecalho p={p} />
@@ -262,6 +265,18 @@ function CardAprovado({ p }: { p: PostRow }) {
       <div className="flex flex-wrap items-center gap-2 border-t border-black/5 p-3">
         <CopiarConteudo texto={legendaPronta(p)} rotulo="Copiar legenda + hashtags" />
         {p.roteiro && <CopiarConteudo texto={p.roteiro} rotulo="Copiar roteiro" />}
+        {igOn && p.canal === "instagram_feed" && (
+          <form action={publicarNoFeed}>
+            <input type="hidden" name="postId" value={p.id} />
+            <button
+              type="submit"
+              className="rounded-lg bg-gradient-to-r from-[#F58529] via-[#DD2A7B] to-[#8134AF] px-3 py-2 text-sm font-bold text-white transition hover:brightness-95"
+              title="Publica a foto do produto + legenda no feed do Instagram"
+            >
+              Publicar no feed
+            </button>
+          </form>
+        )}
         <div className="flex-1" />
         <a
           href={`/admin/conteudo/editar/${p.id}`}

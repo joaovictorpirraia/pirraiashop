@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { publicarFotoFeed } from "@/lib/instagram";
 import {
   gerarRascunhosPendentes,
   gerarConteudo,
@@ -10,6 +11,8 @@ import {
   type Canal,
   type ProdutoParaConteudo,
 } from "@/lib/conteudo";
+
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://pirraiashop.com.br";
 
 /** Normaliza um campo de hashtags digitado (espaço/vírgula, com ou sem #). */
 function parseHashtags(bruto: string): string[] {
@@ -54,6 +57,54 @@ export async function descartarPost(formData: FormData) {
   const postId = Number(formData.get("postId"));
   if (!postId) return;
   await supabaseAdmin().from("posts").delete().eq("id", postId);
+  revalidatePath("/admin/conteudo");
+}
+
+/**
+ * Publica um post aprovado no feed do Instagram (Graph API). Usa a legenda +
+ * hashtags como caption e a foto do produto (via /api/criativo, convertida pra
+ * JPEG). Em sucesso marca 'publicado'. Loga em execucoes. Gated em IG_USER_ID/
+ * IG_ACCESS_TOKEN — o botão só aparece quando configurado.
+ */
+export async function publicarNoFeed(formData: FormData) {
+  const postId = Number(formData.get("postId"));
+  if (!postId) return;
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+
+  const { data: post } = await supabase
+    .from("posts")
+    .select("id, produto_id, legenda, hashtags")
+    .eq("id", postId)
+    .maybeSingle();
+  if (!post?.produto_id) return;
+
+  const tags = (post.hashtags ?? []).map((h: string) => "#" + h).join(" ");
+  const caption = [post.legenda?.trim(), tags].filter(Boolean).join("\n\n");
+  const imageUrl = `${SITE}/api/criativo/${post.produto_id}`;
+
+  try {
+    const res = await publicarFotoFeed({ imageUrl, caption });
+    await supabase
+      .from("posts")
+      .update({ status: "publicado", publicado_em: new Date().toISOString() })
+      .eq("id", postId);
+    await supabase.from("execucoes").insert({
+      job: "publicar_ig",
+      ok: true,
+      itens: 1,
+      detalhe: { postId, ig_media_id: res.id },
+      duracao_ms: Date.now() - inicio,
+    });
+  } catch (e) {
+    await supabase.from("execucoes").insert({
+      job: "publicar_ig",
+      ok: false,
+      itens: 0,
+      detalhe: { postId, erro: (e as Error).message },
+      duracao_ms: Date.now() - inicio,
+    });
+  }
   revalidatePath("/admin/conteudo");
 }
 
