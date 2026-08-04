@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import sharp from "sharp";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -7,9 +6,14 @@ export const fetchCache = "force-no-store";
 export const maxDuration = 60;
 
 /**
- * Serve a foto de um produto como JPEG 1080x1080 (fundo branco), por URL pública.
- * É o que o Instagram Graph API busca na hora de publicar (a API exige JPEG, e as
- * fotos do CDN vêm em webp). Também padroniza o criativo no quadrado do feed.
+ * Serve a foto de um produto por URL pública (proxy do CDN). É o que o Instagram
+ * Graph API busca na hora de publicar.
+ *
+ * NOTA: a Meta exige JPEG e o CDN entrega webp. Enquanto o Instagram está parkado,
+ * este endpoint só faz proxy (mantém o content-type original) — sem dependência
+ * nativa (o `sharp` derrubava o build do EasyPanel). Quando for ligar a publicação
+ * no feed, reintroduzir a conversão pra JPEG 1080x1080 aqui (sharp com binário
+ * linux certo, ou um serviço externo de imagem).
  */
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const id = Number(params.id);
@@ -29,19 +33,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     const resp = await fetch(src, { cache: "no-store" });
     if (!resp.ok) return new NextResponse("imagem indisponível", { status: 502 });
     const buf = Buffer.from(await resp.arrayBuffer());
-
-    const jpg = await sharp(buf)
-      .resize(1080, 1080, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
-      .jpeg({ quality: 88 })
-      .toBuffer();
-
-    return new NextResponse(jpg, {
+    return new NextResponse(buf, {
       headers: {
-        "content-type": "image/jpeg",
+        "content-type": resp.headers.get("content-type") ?? "image/jpeg",
         "cache-control": "public, max-age=3600",
       },
     });
   } catch (e) {
-    return new NextResponse(`falha ao gerar criativo: ${(e as Error).message}`, { status: 500 });
+    return new NextResponse(`falha ao servir criativo: ${(e as Error).message}`, { status: 500 });
   }
 }
