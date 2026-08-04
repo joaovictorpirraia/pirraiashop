@@ -39,7 +39,11 @@ export default function Novo({
           </div>
         )}
 
-        <form action={adicionarProduto} className="space-y-4 rounded-2xl bg-white p-5 shadow-carta">
+        <form
+          action={adicionarProduto}
+          autoComplete="off"
+          className="space-y-4 rounded-2xl bg-white p-5 shadow-carta"
+        >
           <Campo nome="titulo" rotulo="Título *" placeholder="Ex.: Organizador de Gaveta 6 Divisórias" required />
           <Campo
             nome="short_url"
