@@ -13,6 +13,7 @@ type Estado = "lendo" | "salvando" | "ok" | "erro" | "vazio";
 export default function Capturar() {
   const [estado, setEstado] = useState<Estado>("lendo");
   const [msg, setMsg] = useState("");
+  const [curado, setCurado] = useState(false);
   const rodou = useRef(false);
 
   useEffect(() => {
@@ -39,6 +40,7 @@ export default function Capturar() {
         if (r.ok) {
           setEstado("ok");
           setMsg(r.titulo ?? "");
+          setCurado(Boolean(r.curado));
         } else {
           setEstado("erro");
           setMsg(r.erro ?? "Falha ao capturar.");
@@ -64,18 +66,21 @@ export default function Capturar() {
 
         {estado === "ok" && (
           <>
-            <div className="mb-2 text-3xl">✅</div>
-            <p className="text-sm font-semibold text-tinta">Produto na fila!</p>
+            <div className="mb-2 text-3xl">{curado ? "🚀" : "✅"}</div>
+            <p className="text-sm font-semibold text-tinta">
+              {curado ? "Na vitrine!" : "Produto na fila!"}
+            </p>
             {msg && <p className="mt-1 line-clamp-3 text-xs text-fumo">{msg}</p>}
             <p className="mt-3 text-xs text-fumo">
-              Pode fechar esta aba e capturar o próximo. Depois, no admin, cure colando o link de
-              afiliado.
+              {curado
+                ? "Já com link de afiliado e categoria. Pode fechar e capturar o próximo."
+                : "Pode fechar e capturar o próximo. Depois, no admin, cure colando o link de afiliado."}
             </p>
             <a
-              href="/admin"
+              href={curado ? "/" : "/admin"}
               className="mt-4 inline-block rounded-lg bg-pirraia px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-pirraia-dark"
             >
-              Ir pra fila
+              {curado ? "Ver na vitrine" : "Ir pra fila"}
             </a>
           </>
         )}

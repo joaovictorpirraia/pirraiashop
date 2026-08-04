@@ -139,11 +139,10 @@ export async function pontuarVitrine() {
 }
 
 /**
- * Captura um produto vindo do bookmarklet (página da Shopee aberta no navegador
- * do dono). Cai na fila como 'novo' — o link de afiliado entra depois, na curadoria.
- * Sem status no payload: novo vira 'novo' (default); se já existir (mesmo item),
- * atualiza preço/imagem mas preserva o status. Dedup por (origem,item_id,shop_id):
- * o shopid/itemid é extraído da URL do produto quando dá.
+ * Captura um produto vindo do bookmarklet (página aberta no navegador do dono).
+ * COM link de afiliado (ex.: meli.la do "Compartilhar" do ML): classifica a
+ * categoria com IA e vai DIRETO pra vitrine (curado + link). SEM link: cai na
+ * fila como 'novo' pra curar depois. Dedup por (origem,item_id,shop_id).
  */
 export async function capturarProduto(dados: {
   titulo?: string;
@@ -155,7 +154,7 @@ export async function capturarProduto(dados: {
   loja_nome?: string | null;
   origem?: string;
   short_url?: string;
-}): Promise<{ ok: boolean; id?: number; titulo?: string; erro?: string }> {
+}): Promise<{ ok: boolean; id?: number; titulo?: string; curado?: boolean; erro?: string }> {
   const titulo = String(dados.titulo ?? "").trim();
   const imagemUrl = String(dados.imagem_url ?? "").trim();
   const preco = Number(dados.preco);
@@ -194,13 +193,28 @@ export async function capturarProduto(dados: {
       : null;
   const desconto = precoAntigo ? Math.round((1 - preco / precoAntigo) * 100) : null;
 
-  // só inclui link_afiliado quando veio um: re-captura sem link não apaga o que já tinha
+  const supabase = supabaseAdmin();
+  const temLink = !!linkAfiliado;
+
+  // com link → classifica categoria (IA) pra ir pronta pra vitrine; sem link, fila
+  let categoria = dados.categoria?.trim() || null;
+  if (temLink && !categoria) {
+    const { data: cats } = await supabase
+      .from("categorias")
+      .select("nome")
+      .order("ordem", { ascending: true });
+    categoria = await classificarCategoria(
+      titulo,
+      (cats ?? []).map((c) => c.nome as string),
+    );
+  }
+
   const row: Record<string, unknown> = {
     origem,
     item_id: itemId,
     shop_id: shopId,
     titulo,
-    categoria: dados.categoria?.trim() || null,
+    categoria,
     preco,
     preco_antigo: precoAntigo,
     desconto_pct: desconto,
@@ -210,24 +224,58 @@ export async function capturarProduto(dados: {
   };
   if (linkAfiliado) row.link_afiliado = linkAfiliado;
 
-  const { data, error } = await supabaseAdmin()
+  // com link → cura direto ('curado'); sem link → sem status (default 'novo', fila)
+  const { data: prod, error } = await supabase
     .from("produtos")
-    .upsert(
-      {
-        ...row,
-        // sem `status`: insert vira 'novo' (fila); update preserva o status atual
-      },
-      { onConflict: "origem,item_id,shop_id" },
-    )
+    .upsert(temLink ? { ...row, status: "curado" } : { ...row }, {
+      onConflict: "origem,item_id,shop_id",
+    })
     .select("id")
     .single();
 
-  if (error) {
-    console.error("[admin] capturar produto:", error.message);
-    return { ok: false, erro: error.message };
+  if (error || !prod) {
+    console.error("[admin] capturar produto:", error?.message);
+    return { ok: false, erro: error?.message ?? "falha ao gravar" };
   }
+
+  // com link → cria o link de afiliado (se ainda não tiver ativo) → vai pra vitrine
+  if (temLink) {
+    const { data: linkAtivo } = await supabase
+      .from("links")
+      .select("id")
+      .eq("produto_id", prod.id)
+      .eq("ativo", true)
+      .maybeSingle();
+    if (!linkAtivo) {
+      let slug = slugify(titulo).slice(0, 60) || `produto-${prod.id}`;
+      const raiz = slug;
+      for (let i = 2; i < 60; i++) {
+        const { data: existe } = await supabase
+          .from("links")
+          .select("id")
+          .eq("slug", slug)
+          .maybeSingle();
+        if (!existe) break;
+        slug = `${raiz}-${i}`;
+      }
+      const { data: ult } = await supabase
+        .from("links")
+        .select("ordem")
+        .order("ordem", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      await supabase.from("links").insert({
+        produto_id: prod.id,
+        slug,
+        short_url: linkAfiliado!,
+        ativo: true,
+        ordem: (ult?.ordem ?? -1) + 1,
+      });
+    }
+  }
+
   revalidar();
-  return { ok: true, id: data?.id, titulo };
+  return { ok: true, id: prod.id, titulo, curado: temLink };
 }
 
 /**
