@@ -7,11 +7,61 @@ import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes } from "@/lib/curadoria";
 import { buscarItens } from "@/lib/mercadolivre";
-import { ingerirItensML } from "@/lib/ingest";
+import { ingerirItensML, ingerirOfertas } from "@/lib/ingest";
+import { ShopeeAffiliate } from "@/lib/shopee";
 
 function revalidar() {
   revalidatePath("/admin");
   revalidatePath("/"); // a home muda quando um produto entra/sai da vitrine
+}
+
+/**
+ * Importa ofertas da Shopee por palavra-chave pra fila (status 'novo') via Open API.
+ * O offerLink já vem como link de afiliado e pré-preenche o Curar. Gated em
+ * SHOPEE_APP_ID/SECRET. Volta pro /admin com ?shopee=<gravadas> (ou ?shopee_erro).
+ */
+export async function importarShopee(formData: FormData) {
+  const q = String(formData.get("q") ?? "").trim();
+  if (!q) redirect("/admin?shopee_erro=vazio");
+
+  const appId = process.env.SHOPEE_APP_ID;
+  const secret = process.env.SHOPEE_SECRET;
+  if (!appId || !secret) {
+    redirect("/admin?shopee_erro=" + encodeURIComponent("SHOPEE_APP_ID/SECRET ausentes no servidor"));
+  }
+
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  try {
+    const shopee = new ShopeeAffiliate({ appId: appId!, secret: secret! });
+    const pg = await shopee.buscarOfertas({ keyword: q, limit: 50, page: 1 });
+    const res = await ingerirOfertas(supabase, pg.nodes);
+    await supabase.from("execucoes").insert({
+      job: "ingest_shopee",
+      ok: res.erros === 0,
+      itens: res.gravadas,
+      detalhe: { q, origem: "admin", ...res },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino =
+      res.erros > 0
+        ? `/admin?shopee_erro=${encodeURIComponent(res.detalhe ?? "1")}`
+        : `/admin?shopee=${res.gravadas}`;
+  } catch (e) {
+    const msg = (e as Error).message;
+    await supabase.from("execucoes").insert({
+      job: "ingest_shopee",
+      ok: false,
+      itens: 0,
+      detalhe: { q, origem: "admin", erro: msg },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = `/admin?shopee_erro=${encodeURIComponent(msg)}`;
+  }
+
+  revalidar();
+  redirect(destino);
 }
 
 /**
