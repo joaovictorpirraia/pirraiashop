@@ -41,18 +41,26 @@ export default async function Metricas() {
 
   const desde = new Date(Date.now() - 30 * 864e5).toISOString();
 
-  const [{ data: linksRaw }, { data: cliquesRaw }] = await Promise.all([
-    supabase
-      .from("links")
-      .select("id, slug, cliques, produto:produtos!inner(titulo, imagem_url, categoria)")
-      .order("cliques", { ascending: false }),
-    supabase
-      .from("cliques")
-      .select("link_id, utm_source, utm_medium, criado_em")
-      .gte("criado_em", desde)
-      .order("criado_em", { ascending: false })
-      .limit(5000),
-  ]);
+  const [{ data: linksRaw }, { data: cliquesRaw }, { data: visitasRaw }, { count: visitasTotal }] =
+    await Promise.all([
+      supabase
+        .from("links")
+        .select("id, slug, cliques, produto:produtos!inner(titulo, imagem_url, categoria)")
+        .order("cliques", { ascending: false }),
+      supabase
+        .from("cliques")
+        .select("link_id, utm_source, utm_medium, criado_em")
+        .gte("criado_em", desde)
+        .order("criado_em", { ascending: false })
+        .limit(5000),
+      supabase
+        .from("visitas")
+        .select("criado_em")
+        .gte("criado_em", desde)
+        .order("criado_em", { ascending: false })
+        .limit(20000),
+      supabase.from("visitas").select("id", { count: "exact", head: true }),
+    ]);
 
   const links = ((linksRaw ?? []) as unknown[]).map((l) => {
     const row = l as LinkRow & { produto: LinkRow["produto"] | LinkRow["produto"][] };
@@ -60,10 +68,26 @@ export default async function Metricas() {
     return { ...row, produto } as LinkRow;
   });
   const cliques = (cliquesRaw ?? []) as CliqueRow[];
+  const visitas = (visitasRaw ?? []) as { criado_em: string }[];
 
   const totalGeral = links.reduce((s, l) => s + (l.cliques ?? 0), 0);
   const hojeISO = diaISO(new Date());
   const seteDias = diaISO(new Date(Date.now() - 6 * 864e5));
+
+  // visitas na home: hoje / 7d / total + série 14 dias
+  const visitasHoje = visitas.filter((v) => diaISO(new Date(v.criado_em)) === hojeISO).length;
+  const visitas7d = visitas.filter((v) => diaISO(new Date(v.criado_em)) >= seteDias).length;
+  const visitasDias: { label: string; iso: string; n: number }[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 864e5);
+    visitasDias.push({ iso: diaISO(d), label: `${d.getDate()}/${d.getMonth() + 1}`, n: 0 });
+  }
+  const idxVDia = new Map(visitasDias.map((d, i) => [d.iso, i]));
+  for (const v of visitas) {
+    const i = idxVDia.get(diaISO(new Date(v.criado_em)));
+    if (i !== undefined) visitasDias[i].n++;
+  }
+  const maxVDia = Math.max(1, ...visitasDias.map((d) => d.n));
   const cliquesHoje = cliques.filter((c) => diaISO(new Date(c.criado_em)) === hojeISO).length;
   const cliques7d = cliques.filter((c) => diaISO(new Date(c.criado_em)) >= seteDias).length;
 
@@ -136,7 +160,51 @@ export default async function Metricas() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-8 px-5 py-8">
-        {/* números-chave */}
+        {/* VISITAS NA HOME */}
+        <section>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-fumo">
+            Visitas na home
+          </h2>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { rotulo: "Visitas hoje", valor: visitasHoje },
+              { rotulo: "Últimos 7 dias", valor: visitas7d },
+              { rotulo: "Total (sempre)", valor: visitasTotal ?? 0 },
+            ].map((s) => (
+              <div key={s.rotulo} className="rounded-2xl bg-white p-4 shadow-carta">
+                <div className="text-2xl font-extrabold tabular-nums tracking-tight text-tinta">
+                  {s.valor.toLocaleString("pt-BR")}
+                </div>
+                <div className="mt-0.5 text-xs text-fumo">{s.rotulo}</div>
+              </div>
+            ))}
+          </div>
+          {(visitasTotal ?? 0) > 0 ? (
+            <div className="mt-4 rounded-2xl bg-white p-5 shadow-carta">
+              <h3 className="mb-4 text-xs font-bold uppercase tracking-wide text-fumo">
+                Visitas por dia · 14 dias
+              </h3>
+              <div className="flex h-32 items-end gap-1.5">
+                {visitasDias.map((d) => (
+                  <div key={d.iso} className="flex flex-1 flex-col items-center gap-1">
+                    <div
+                      className="w-full rounded-t bg-tinta/80"
+                      style={{ height: `${(d.n / maxVDia) * 100}%`, minHeight: d.n > 0 ? "3px" : "0" }}
+                      title={`${d.label}: ${d.n}`}
+                    />
+                    <span className="text-[9px] tabular-nums text-fumo">{d.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 rounded-2xl bg-white p-6 text-center text-sm text-fumo shadow-carta">
+              Ainda sem visitas registradas. Assim que alguém abrir a home, os acessos aparecem aqui.
+            </p>
+          )}
+        </section>
+
+        {/* CLIQUES nos links de afiliado */}
         <section className="grid grid-cols-3 gap-3">
           {[
             { rotulo: "Cliques hoje", valor: cliquesHoje },

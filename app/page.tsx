@@ -6,6 +6,7 @@ import { Grade } from "@/components/Grade";
 import { LojaBotao } from "@/components/LojaBotao";
 import { CompartilharBotao } from "@/components/CompartilharBotao";
 import { PixelTrack } from "@/components/PixelTrack";
+import { VisitaTracker } from "@/components/VisitaTracker";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function Home() {
   return (
     <div className="min-h-screen">
       <PixelTrack event="ViewContent" params={{ content_name: "vitrine" }} />
+      <VisitaTracker />
       <Header />
 
       <main className="mx-auto max-w-3xl px-5 pb-16 lg:max-w-7xl">
