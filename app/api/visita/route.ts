@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   try {
     await supabaseAdmin().from("visitas").insert({
+      visitante_id: p.get("vid")?.slice(0, 60) || null,
       referer: p.get("ref")?.slice(0, 300) || null,
       utm_source: p.get("utm_source")?.slice(0, 120) || null,
       utm_medium: p.get("utm_medium")?.slice(0, 120) || null,

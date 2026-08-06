@@ -53,26 +53,24 @@ export default async function Metricas() {
 
   const desde = new Date(Date.now() - 30 * 864e5).toISOString();
 
-  const [{ data: linksRaw }, { data: cliquesRaw }, { data: visitasRaw }, { count: visitasTotal }] =
-    await Promise.all([
-      supabase
-        .from("links")
-        .select("id, slug, cliques, produto:produtos!inner(titulo, imagem_url, categoria)")
-        .order("cliques", { ascending: false }),
-      supabase
-        .from("cliques")
-        .select("link_id, utm_source, utm_medium, criado_em")
-        .gte("criado_em", desde)
-        .order("criado_em", { ascending: false })
-        .limit(5000),
-      supabase
-        .from("visitas")
-        .select("criado_em")
-        .gte("criado_em", desde)
-        .order("criado_em", { ascending: false })
-        .limit(20000),
-      supabase.from("visitas").select("id", { count: "exact", head: true }),
-    ]);
+  const [{ data: linksRaw }, { data: cliquesRaw }, { data: visitasRaw }] = await Promise.all([
+    supabase
+      .from("links")
+      .select("id, slug, cliques, produto:produtos!inner(titulo, imagem_url, categoria)")
+      .order("cliques", { ascending: false }),
+    supabase
+      .from("cliques")
+      .select("link_id, utm_source, utm_medium, criado_em")
+      .gte("criado_em", desde)
+      .order("criado_em", { ascending: false })
+      .limit(5000),
+    supabase
+      .from("visitas")
+      .select("id, criado_em, visitante_id")
+      .gte("criado_em", desde)
+      .order("criado_em", { ascending: false })
+      .limit(20000),
+  ]);
 
   const links = ((linksRaw ?? []) as unknown[]).map((l) => {
     const row = l as LinkRow & { produto: LinkRow["produto"] | LinkRow["produto"][] };
@@ -80,24 +78,41 @@ export default async function Metricas() {
     return { ...row, produto } as LinkRow;
   });
   const cliques = (cliquesRaw ?? []) as CliqueRow[];
-  const visitas = (visitasRaw ?? []) as { criado_em: string }[];
+  const visitas = (visitasRaw ?? []) as {
+    id: number;
+    criado_em: string;
+    visitante_id: string | null;
+  }[];
 
   const totalGeral = links.reduce((s, l) => s + (l.cliques ?? 0), 0);
   const hojeISO = diaISO(new Date());
   const seteDias = diaISO(new Date(Date.now() - 6 * 864e5));
 
-  // visitas na home: hoje / 7d / total + série 14 dias
-  const visitasHoje = visitas.filter((v) => diaISO(new Date(v.criado_em)) === hojeISO).length;
-  const visitas7d = visitas.filter((v) => diaISO(new Date(v.criado_em)) >= seteDias).length;
+  // VISITANTES ÚNICOS (por cookie): dedup por visitante_id. Registro antigo sem id
+  // (antes do cookie) vira único por linha, então não some do histórico.
+  const chave = (v: { id: number; visitante_id: string | null }) => v.visitante_id || `r${v.id}`;
+  const setHoje = new Set<string>();
+  const set7d = new Set<string>();
+  const set30d = new Set<string>();
+  const porDia = new Map<string, Set<string>>();
+  for (const v of visitas) {
+    const dia = diaISO(new Date(v.criado_em));
+    const k = chave(v);
+    set30d.add(k);
+    if (dia >= seteDias) set7d.add(k);
+    if (dia === hojeISO) setHoje.add(k);
+    if (!porDia.has(dia)) porDia.set(dia, new Set());
+    porDia.get(dia)!.add(k);
+  }
+  const visitasHoje = setHoje.size;
+  const visitas7d = set7d.size;
+  const visitas30d = set30d.size;
+
+  // série 14 dias (visitantes únicos por dia)
   const visitasDias: { label: string; iso: string; n: number }[] = [];
   for (let i = 13; i >= 0; i--) {
     const iso = diaISO(new Date(Date.now() - i * 864e5));
-    visitasDias.push({ iso, label: rotuloDia(iso), n: 0 });
-  }
-  const idxVDia = new Map(visitasDias.map((d, i) => [d.iso, i]));
-  for (const v of visitas) {
-    const i = idxVDia.get(diaISO(new Date(v.criado_em)));
-    if (i !== undefined) visitasDias[i].n++;
+    visitasDias.push({ iso, label: rotuloDia(iso), n: porDia.get(iso)?.size ?? 0 });
   }
   const maxVDia = Math.max(1, ...visitasDias.map((d) => d.n));
   const cliquesHoje = cliques.filter((c) => diaISO(new Date(c.criado_em)) === hojeISO).length;
@@ -172,16 +187,16 @@ export default async function Metricas() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-8 px-5 py-8">
-        {/* VISITAS NA HOME */}
+        {/* VISITANTES NA HOME (únicos) */}
         <section>
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-fumo">
-            Visitas na home
+            Visitantes na home <span className="normal-case text-fumo">(únicos)</span>
           </h2>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { rotulo: "Visitas hoje", valor: visitasHoje },
+              { rotulo: "Visitantes hoje", valor: visitasHoje },
               { rotulo: "Últimos 7 dias", valor: visitas7d },
-              { rotulo: "Total (sempre)", valor: visitasTotal ?? 0 },
+              { rotulo: "Últimos 30 dias", valor: visitas30d },
             ].map((s) => (
               <div key={s.rotulo} className="rounded-2xl bg-white p-4 shadow-carta">
                 <div className="text-2xl font-extrabold tabular-nums tracking-tight text-tinta">
@@ -191,20 +206,23 @@ export default async function Metricas() {
               </div>
             ))}
           </div>
-          {(visitasTotal ?? 0) > 0 ? (
+          {visitas30d > 0 ? (
             <div className="mt-4 rounded-2xl bg-white p-5 shadow-carta">
-              <h3 className="mb-4 text-xs font-bold uppercase tracking-wide text-fumo">
-                Visitas por dia · 14 dias
+              <h3 className="mb-5 text-xs font-bold uppercase tracking-wide text-fumo">
+                Visitantes por dia · 14 dias
               </h3>
-              <div className="flex h-32 items-end gap-1.5">
+              <div className="flex h-40 items-end gap-1.5">
                 {visitasDias.map((d) => (
-                  <div key={d.iso} className="flex flex-1 flex-col items-center gap-1">
+                  <div key={d.iso} className="flex h-full flex-1 flex-col justify-end gap-1">
+                    <span className="text-center text-[10px] font-bold tabular-nums text-tinta">
+                      {d.n > 0 ? d.n : ""}
+                    </span>
                     <div
                       className="w-full rounded-t bg-tinta/80"
-                      style={{ height: `${(d.n / maxVDia) * 100}%`, minHeight: d.n > 0 ? "3px" : "0" }}
-                      title={`${d.label}: ${d.n}`}
+                      style={{ height: `${(d.n / maxVDia) * 82}%`, minHeight: d.n > 0 ? "3px" : "0" }}
+                      title={`${d.label}: ${d.n} visitante(s)`}
                     />
-                    <span className="text-[9px] tabular-nums text-fumo">{d.label}</span>
+                    <span className="text-center text-[9px] tabular-nums text-fumo">{d.label}</span>
                   </div>
                 ))}
               </div>
