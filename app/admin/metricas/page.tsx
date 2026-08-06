@@ -15,7 +15,19 @@ interface CliqueRow {
   criado_em: string;
 }
 
-const diaISO = (d: Date) => d.toISOString().slice(0, 10);
+// Data (YYYY-MM-DD) no fuso de Brasília — o dia tem que fechar às 00h de Brasília,
+// não às 00h UTC. Sem isso, à noite as visitas/cliques caem no "dia seguinte".
+const fmtDiaBRT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const diaISO = (d: Date) => fmtDiaBRT.format(d); // en-CA → "YYYY-MM-DD"
+const rotuloDia = (iso: string) => {
+  const [, m, dd] = iso.split("-");
+  return `${Number(dd)}/${Number(m)}`;
+};
 
 // Dia/hora do clique em horário de Brasília — o servidor (VPS) pode rodar em UTC,
 // então não dá pra confiar no fuso local do Node. Deriva com Intl no America/Sao_Paulo.
@@ -79,8 +91,8 @@ export default async function Metricas() {
   const visitas7d = visitas.filter((v) => diaISO(new Date(v.criado_em)) >= seteDias).length;
   const visitasDias: { label: string; iso: string; n: number }[] = [];
   for (let i = 13; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 864e5);
-    visitasDias.push({ iso: diaISO(d), label: `${d.getDate()}/${d.getMonth() + 1}`, n: 0 });
+    const iso = diaISO(new Date(Date.now() - i * 864e5));
+    visitasDias.push({ iso, label: rotuloDia(iso), n: 0 });
   }
   const idxVDia = new Map(visitasDias.map((d, i) => [d.iso, i]));
   for (const v of visitas) {
@@ -94,8 +106,8 @@ export default async function Metricas() {
   // série dos últimos 14 dias
   const dias: { label: string; iso: string; n: number }[] = [];
   for (let i = 13; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 864e5);
-    dias.push({ iso: diaISO(d), label: `${d.getDate()}/${d.getMonth() + 1}`, n: 0 });
+    const iso = diaISO(new Date(Date.now() - i * 864e5));
+    dias.push({ iso, label: rotuloDia(iso), n: 0 });
   }
   const idxDia = new Map(dias.map((d, i) => [d.iso, i]));
   for (const c of cliques) {
