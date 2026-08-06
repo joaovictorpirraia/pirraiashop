@@ -63,6 +63,8 @@ interface LinkVitrine {
     imagem_url: string | null;
     loja_nome: string | null;
     status: string;
+    comissao_pct: number | string | null;
+    comissao_valor: number | string | null;
   };
 }
 
@@ -110,7 +112,7 @@ export default async function Admin({
   const { data: linksRaw } = await supabase
     .from("links")
     .select(
-      "id, slug, short_url, destaque, ordem, cliques, produto:produtos!inner(id, titulo, categoria, preco, imagem_url, loja_nome, status)",
+      "id, slug, short_url, destaque, ordem, cliques, produto:produtos!inner(id, titulo, categoria, preco, imagem_url, loja_nome, status, comissao_pct, comissao_valor)",
     )
     .eq("ativo", true)
     .order("destaque", { ascending: false })
@@ -588,6 +590,14 @@ function VitrineRow({
           <span className="truncate text-sm font-semibold text-tinta">
             {l.produto.titulo}
           </span>
+          {l.produto.comissao_pct != null && Number(l.produto.comissao_pct) > 0 && (
+            <span className="ml-auto shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+              {Number(l.produto.comissao_pct).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+              {l.produto.comissao_valor != null && Number(l.produto.comissao_valor) > 0
+                ? ` · ${brl(l.produto.comissao_valor)}`
+                : ""}
+            </span>
+          )}
         </div>
         <div className="mt-0.5 text-xs text-fumo">
           {brl(l.produto.preco)} · /r/{l.slug} · {l.cliques} cliques
