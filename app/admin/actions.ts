@@ -796,6 +796,22 @@ export async function descartarProduto(formData: FormData) {
   revalidar();
 }
 
+/**
+ * Limpa a fila inteira de uma vez: todos os 'novo' viram 'descartado'. Reversível,
+ * igual ao descarte individual — não apaga do banco. Acionada pelo botão "Limpar
+ * fila" (com passo de confirmação na tela). Volta pro /admin com a contagem.
+ */
+export async function limparFila() {
+  const supabase = supabaseAdmin();
+  const { data } = await supabase
+    .from("produtos")
+    .update({ status: "descartado" })
+    .eq("status", "novo")
+    .select("id");
+  revalidar();
+  redirect(`/admin?ver=fila&fila_limpa=${data?.length ?? 0}`);
+}
+
 /** Liga/desliga o destaque de um item da vitrine. */
 export async function alternarDestaque(formData: FormData) {
   const linkId = Number(formData.get("linkId"));
