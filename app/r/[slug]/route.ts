@@ -104,7 +104,7 @@ export async function GET(
     // na curadoria. Fallback pro /api/og se faltar a env do Supabase.
     const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const banner = base
-      ? `${base}/storage/v1/object/public/banners/${slug}.png`
+      ? `${base}/storage/v1/object/public/banners/${slug}.jpg`
       : `${url.origin}/api/og/${encodeURIComponent(slug)}`;
     return new NextResponse(
       paginaOg({ titulo: p.titulo, descricao, imagem: banner, preco, url: url.href }),
