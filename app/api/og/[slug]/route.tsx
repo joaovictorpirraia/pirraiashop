@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
-import { supabasePublic } from "@/lib/supabase";
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// fonte própria embutida (evita o loader de fonte padrão do @vercel/og, que
-// quebra em alguns ambientes). Lida uma vez no carregamento do módulo.
+// fonte própria embutida (evita o loader de fonte padrão do @vercel/og).
 const FONT_DIR = join(process.cwd(), "app", "api", "og");
 const fonteRegular = readFileSync(join(FONT_DIR, "OpenSans-Regular.ttf"));
 const fonteBold = readFileSync(join(FONT_DIR, "OpenSans-ExtraBold.ttf"));
@@ -27,20 +27,31 @@ function brl(n: number): string {
 }
 
 /**
- * Banner 1200x630 (paisagem) pro card GRANDE do WhatsApp: foto grande à esquerda,
- * título + preço gigante à direita. Imagem quadrada não dispara o card grande —
- * por isso geramos um criativo landscape.
+ * Banner 1200x630 (paisagem) pro card GRANDE do WhatsApp. Gera 1x e guarda no
+ * Storage (bucket público "banners"); as chamadas seguintes só redirecionam pro
+ * PNG no CDN (rápido) — o robô do WhatsApp tem timeout curto e não pode bater no
+ * render de ~2s a cada acesso.
  */
 export async function GET(_req: Request, { params }: { params: { slug: string } }) {
-  const { data: p } = await supabasePublic()
+  const slug = params.slug;
+  const supabase = supabaseAdmin();
+  const caminho = `${slug}.png`;
+  const publicUrl = supabase.storage.from("banners").getPublicUrl(caminho).data.publicUrl;
+
+  // já gerado? redireciona pro CDN
+  try {
+    const head = await fetch(publicUrl, { method: "HEAD", cache: "no-store" });
+    if (head.ok) return NextResponse.redirect(publicUrl, 302);
+  } catch {
+    /* segue e gera */
+  }
+
+  const { data: p } = await supabase
     .from("vitrine")
     .select("titulo, preco, preco_antigo, desconto_pct, imagem_url")
-    .eq("slug", params.slug)
+    .eq("slug", slug)
     .maybeSingle();
-
-  if (!p || !p.imagem_url) {
-    return new Response("não encontrado", { status: 404 });
-  }
+  if (!p || !p.imagem_url) return new NextResponse("não encontrado", { status: 404 });
 
   const img = jpegDe(p.imagem_url as string);
   const preco = Number(p.preco);
@@ -49,7 +60,7 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
   const tituloBruto = String(p.titulo);
   const titulo = tituloBruto.length > 54 ? `${tituloBruto.slice(0, 54).trimEnd()}…` : tituloBruto;
 
-  return new ImageResponse(
+  const resp = new ImageResponse(
     (
       <div
         style={{
@@ -86,7 +97,6 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
           >
             {titulo}
           </div>
-          {/* preço antigo + selo de desconto, na mesma linha */}
           <div style={{ display: "flex", alignItems: "center", marginTop: 30 }}>
             {antigo && antigo > preco && (
               <div
@@ -117,7 +127,6 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
               </div>
             )}
           </div>
-          {/* preço grande, em linha própria (não quebra) */}
           <div style={{ display: "flex", fontSize: 80, fontWeight: 900, color: "#2b2320", marginTop: 2 }}>
             {brl(preco)}
           </div>
@@ -130,11 +139,23 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
     {
       width: 1200,
       height: 630,
-      headers: { "cache-control": "public, max-age=86400" },
       fonts: [
         { name: "Open Sans", data: fonteRegular, weight: 400, style: "normal" },
         { name: "Open Sans", data: fonteBold, weight: 800, style: "normal" },
       ],
     },
   );
+
+  // guarda no Storage e redireciona pro CDN; se o upload falhar, devolve o PNG direto
+  const bytes = Buffer.from(await resp.arrayBuffer());
+  try {
+    await supabase.storage
+      .from("banners")
+      .upload(caminho, bytes, { contentType: "image/png", upsert: true });
+    return NextResponse.redirect(publicUrl, 302);
+  } catch {
+    return new NextResponse(bytes, {
+      headers: { "content-type": "image/png", "cache-control": "public, max-age=86400" },
+    });
+  }
 }
