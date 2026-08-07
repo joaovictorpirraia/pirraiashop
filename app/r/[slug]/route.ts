@@ -23,11 +23,22 @@ function paginaOg(o: {
   preco: number;
   url: string;
 }): string {
+  const img = o.imagem ? esc(o.imagem) : "";
+  // declarar width/height grandes faz o WhatsApp/Facebook renderizarem o card
+  // GRANDE (foto no topo + texto grande embaixo) em vez do thumbnail pequeno.
+  const metaImg = img
+    ? `<meta property="og:image" content="${img}">
+<meta property="og:image:secure_url" content="${img}">
+<meta property="og:image:width" content="1024">
+<meta property="og:image:height" content="1024">
+<meta property="og:image:alt" content="${esc(o.titulo)}">
+<meta name="twitter:image" content="${img}">`
+    : "";
   return `<!doctype html><html lang="pt-br"><head><meta charset="utf-8">
 <meta property="og:type" content="product">
 <meta property="og:title" content="${esc(o.titulo)}">
 <meta property="og:description" content="${esc(o.descricao)}">
-${o.imagem ? `<meta property="og:image" content="${esc(o.imagem)}">` : ""}
+${metaImg}
 <meta property="og:url" content="${esc(o.url)}">
 <meta property="og:site_name" content="pirraiashop">
 <meta property="product:price:amount" content="${o.preco}">
@@ -86,8 +97,8 @@ export async function GET(
     const antigo = p.preco_antigo != null ? Number(p.preco_antigo) : null;
     const descricao =
       antigo && antigo > preco
-        ? `De ${brl(antigo)} por ${brl(preco)}${p.desconto_pct ? ` · -${p.desconto_pct}% OFF` : ""}`
-        : `${brl(preco)} · achadinho garimpado`;
+        ? `🔥 De ${brl(antigo)} por ${brl(preco)}${p.desconto_pct ? ` — ${p.desconto_pct}% OFF` : ""} · aproveita!`
+        : `${brl(preco)} · achadinho garimpado 🛍️`;
     return new NextResponse(
       paginaOg({ titulo: p.titulo, descricao, imagem: p.imagem_url, preco, url: url.href }),
       { headers: { "content-type": "text/html; charset=utf-8" } },
