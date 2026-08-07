@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type ProdutoOferta, paraProduto } from "./shopee";
 import { type ItemML, paraProdutoML } from "./mercadolivre";
+import { type ProdutoAli, paraProdutoAli } from "./aliexpress";
 
 export interface ResultadoIngestao {
   recebidas: number;
@@ -65,4 +66,12 @@ export async function ingerirItensML(
   itens: ItemML[],
 ): Promise<ResultadoIngestao> {
   return upsertNormalizados(supabase, itens.map(paraProdutoML));
+}
+
+/** Normaliza produtos da AliExpress e faz upsert em `produtos` (mesma fila). */
+export async function ingerirItensAli(
+  supabase: SupabaseClient,
+  itens: ProdutoAli[],
+): Promise<ResultadoIngestao> {
+  return upsertNormalizados(supabase, itens.map(paraProdutoAli));
 }

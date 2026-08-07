@@ -8,6 +8,9 @@ const nextConfig = {
       { protocol: "https", hostname: "**.susercontent.com" },
       // CDN do Mercado Livre
       { protocol: "https", hostname: "**.mlstatic.com" },
+      // CDN da AliExpress
+      { protocol: "https", hostname: "**.alicdn.com" },
+      { protocol: "https", hostname: "**.aliexpress-media.com" },
       // placeholder dos produtos falsos do seed — remover quando entrar catálogo real
       { protocol: "https", hostname: "picsum.photos" },
     ],
