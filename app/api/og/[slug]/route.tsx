@@ -46,7 +46,8 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
   const preco = Number(p.preco);
   const antigo = p.preco_antigo != null ? Number(p.preco_antigo) : null;
   const temDesc = p.desconto_pct != null && Number(p.desconto_pct) > 0;
-  const titulo = String(p.titulo).slice(0, 90);
+  const tituloBruto = String(p.titulo);
+  const titulo = tituloBruto.length > 54 ? `${tituloBruto.slice(0, 54).trimEnd()}…` : tituloBruto;
 
   return new ImageResponse(
     (
@@ -67,59 +68,60 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
             flexDirection: "column",
             justifyContent: "center",
             flex: 1,
-            padding: "56px 52px",
+            padding: "48px 48px",
           }}
         >
-          <div style={{ display: "flex", fontSize: 26, fontWeight: 700, color: "#a89b90" }}>
+          <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: "#a89b90" }}>
             pirraiashop<span style={{ color: "#e11d74" }}>.</span>com.br
           </div>
           <div
             style={{
               display: "flex",
-              fontSize: 42,
+              fontSize: 38,
               fontWeight: 800,
               color: "#2b2320",
-              marginTop: 18,
+              marginTop: 14,
               lineHeight: 1.15,
             }}
           >
             {titulo}
           </div>
-          {antigo && antigo > preco && (
-            <div
-              style={{
-                display: "flex",
-                fontSize: 30,
-                color: "#a89b90",
-                textDecoration: "line-through",
-                marginTop: 28,
-              }}
-            >
-              {brl(antigo)}
-            </div>
-          )}
-          <div style={{ display: "flex", alignItems: "center", marginTop: 6 }}>
-            <div style={{ display: "flex", fontSize: 88, fontWeight: 900, color: "#2b2320" }}>
-              {brl(preco)}
-            </div>
+          {/* preço antigo + selo de desconto, na mesma linha */}
+          <div style={{ display: "flex", alignItems: "center", marginTop: 30 }}>
+            {antigo && antigo > preco && (
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: 26,
+                  color: "#a89b90",
+                  textDecoration: "line-through",
+                  marginRight: 18,
+                }}
+              >
+                {brl(antigo)}
+              </div>
+            )}
             {temDesc && (
               <div
                 style={{
                   display: "flex",
-                  fontSize: 30,
+                  fontSize: 24,
                   fontWeight: 800,
                   color: "#fff",
                   background: "#e11d74",
-                  padding: "8px 20px",
+                  padding: "6px 18px",
                   borderRadius: 999,
-                  marginLeft: 24,
                 }}
               >
-                -{p.desconto_pct}%
+                -{p.desconto_pct}% OFF
               </div>
             )}
           </div>
-          <div style={{ display: "flex", fontSize: 30, fontWeight: 800, color: "#e11d74", marginTop: 34 }}>
+          {/* preço grande, em linha própria (não quebra) */}
+          <div style={{ display: "flex", fontSize: 80, fontWeight: 900, color: "#2b2320", marginTop: 2 }}>
+            {brl(preco)}
+          </div>
+          <div style={{ display: "flex", fontSize: 27, fontWeight: 800, color: "#e11d74", marginTop: 30 }}>
             Ver na loja →
           </div>
         </div>
