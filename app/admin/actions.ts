@@ -16,6 +16,16 @@ function revalidar() {
 }
 
 /**
+ * Pré-gera o banner OG (foto grande pro WhatsApp) e guarda no Storage, pra o
+ * primeiro compartilhamento já vir com a imagem. Fire-and-forget (não trava o
+ * Curar); no Node persistente do EasyPanel a chamada completa.
+ */
+function aquecerBanner(slug: string) {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://pirraiashop.com.br";
+  void fetch(`${base}/api/og/${encodeURIComponent(slug)}`, { cache: "no-store" }).catch(() => {});
+}
+
+/**
  * Importa ofertas da Shopee por palavra-chave pra fila (status 'novo') via Open API.
  * O offerLink já vem como link de afiliado e pré-preenche o Curar. Gated em
  * SHOPEE_APP_ID/SECRET. Volta pro /admin com ?shopee=<gravadas> (ou ?shopee_erro).
@@ -271,6 +281,7 @@ export async function capturarProduto(dados: {
         ativo: true,
         ordem: (ult?.ordem ?? -1) + 1,
       });
+      aquecerBanner(slug);
     }
   }
 
@@ -375,6 +386,7 @@ export async function importarPorLink(formData: FormData) {
         ativo: true,
         ordem: (ult?.ordem ?? -1) + 1,
       });
+      aquecerBanner(slug);
     }
 
     await supabase.from("execucoes").insert({
@@ -603,6 +615,7 @@ export async function curarProduto(formData: FormData) {
   if (categoria) patch.categoria = categoria;
   await supabase.from("produtos").update(patch).eq("id", produtoId);
   revalidar();
+  aquecerBanner(slug);
 }
 
 /**
