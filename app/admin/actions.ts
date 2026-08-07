@@ -368,6 +368,13 @@ export async function importarPorLink(formData: FormData) {
     );
   }
 
+  // Amazon: não tem API pra afiliado novo (PA-API exige 3 vendas) e a página bloqueia
+  // scraping. Então joga pro + Produto com o link (do SiteStripe) já preenchido —
+  // o dono completa título/preço/foto na mão.
+  if (/amazon\.|amzn\.to|amzn\.eu|a\.co\//i.test(url)) {
+    redirect("/admin/novo?link=" + encodeURIComponent(url));
+  }
+
   // AliExpress: resolve o produto pela API de afiliado (detalhe + gera link se preciso)
   if (/aliexpress\.|a\.aliexpress|s\.click\.aliexpress|aliexpress-media/i.test(url)) {
     return importarLinkAliexpress(url);
