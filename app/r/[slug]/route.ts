@@ -29,8 +29,8 @@ function paginaOg(o: {
   const metaImg = img
     ? `<meta property="og:image" content="${img}">
 <meta property="og:image:secure_url" content="${img}">
-<meta property="og:image:width" content="1024">
-<meta property="og:image:height" content="1024">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="${esc(o.titulo)}">
 <meta name="twitter:image" content="${img}">`
     : "";
@@ -99,8 +99,10 @@ export async function GET(
       antigo && antigo > preco
         ? `🔥 De ${brl(antigo)} por ${brl(preco)}${p.desconto_pct ? ` — ${p.desconto_pct}% OFF` : ""} · aproveita!`
         : `${brl(preco)} · achadinho garimpado 🛍️`;
+    // og:image = banner landscape 1200x630 gerado (dispara o card GRANDE do WhatsApp)
+    const banner = `${url.origin}/api/og/${encodeURIComponent(slug)}`;
     return new NextResponse(
-      paginaOg({ titulo: p.titulo, descricao, imagem: p.imagem_url, preco, url: url.href }),
+      paginaOg({ titulo: p.titulo, descricao, imagem: banner, preco, url: url.href }),
       { headers: { "content-type": "text/html; charset=utf-8" } },
     );
   }
