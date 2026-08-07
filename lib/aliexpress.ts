@@ -170,7 +170,7 @@ export class AliexpressAfiliado {
     return (respResult?.result ?? env?.result ?? env) as T;
   }
 
-  /** Busca produtos por palavra-chave. Com tracking_id, cada item já vem com promotion_link. */
+  /** Busca produtos por palavra-chave. Gera o link de afiliado real por produto. */
   async buscarProdutos(opts: {
     keywords?: string;
     categoryIds?: string;
@@ -196,10 +196,12 @@ export class AliexpressAfiliado {
         tracking_id: this.trackingId,
       },
     );
-    return lista<ProdutoAli>(result.products, "product");
+    const produtos = lista<ProdutoAli>(result.products, "product");
+    await this.anexarLinksReais(produtos);
+    return produtos;
   }
 
-  /** Detalhe de 1+ produtos por id (batch por vírgula). Com tracking_id vem promotion_link. */
+  /** Detalhe de 1+ produtos por id (batch por vírgula). Gera o link de afiliado real por produto. */
   async detalharProdutos(productIds: Array<string | number>): Promise<ProdutoAli[]> {
     if (productIds.length === 0) return [];
     const result = await this.chamar<{ products?: unknown }>(
@@ -212,7 +214,37 @@ export class AliexpressAfiliado {
         tracking_id: this.trackingId,
       },
     );
-    return lista<ProdutoAli>(result.products, "product");
+    const produtos = lista<ProdutoAli>(result.products, "product");
+    await this.anexarLinksReais(produtos);
+    return produtos;
+  }
+
+  /**
+   * Gera o link de afiliado REAL por produto e grava em cada `promotion_link`.
+   *
+   * O `product.query`/`productdetail.get` devolvem um `promotion_link` genérico (o
+   * mesmo pra todos os itens) — inútil, mandaria todo produto pro mesmo lugar. O
+   * link certo sai do `link.generate` a partir da URL canônica de cada produto.
+   * Em lote (≤ 50 por chamada). Zera o promotion_link antes: se a geração falhar
+   * pra um item, ele fica sem link (cai como manual) em vez de herdar o genérico.
+   */
+  private async anexarLinksReais(produtos: ProdutoAli[]): Promise<void> {
+    for (const p of produtos) p.promotion_link = undefined;
+    if (!this.trackingId || produtos.length === 0) return;
+
+    const urls = produtos.map((p) => p.product_detail_url).filter(Boolean);
+    const mapa: Record<string, string> = {};
+    for (let i = 0; i < urls.length; i += 50) {
+      try {
+        Object.assign(mapa, await this.gerarLinks(urls.slice(i, i + 50)));
+      } catch {
+        /* falha de um lote não derruba a ingestão; os itens ficam sem link */
+      }
+    }
+    for (const p of produtos) {
+      const gerado = mapa[p.product_detail_url];
+      if (gerado) p.promotion_link = gerado;
+    }
   }
 
   /**
@@ -307,8 +339,9 @@ export function paraProdutoAli(p: ProdutoAli) {
     comissao_pct: comissaoPct || null,
     comissao_valor: comissaoPct ? Number((preco * (comissaoPct / 100)).toFixed(2)) : null,
     imagem_url: p.product_main_image_url,
-    url_produto: p.promotion_link || p.product_detail_url,
-    // promotion_link já é o link de afiliado → pré-preenche o Curar
+    // URL canônica do produto (não o link genérico) — fallback do redirect se faltar afiliado
+    url_produto: p.product_detail_url,
+    // promotion_link real por produto (gerado via link.generate) → pré-preenche o Curar
     link_afiliado: p.promotion_link || null,
     loja_nome: null as string | null,
     vendas: Number(p.lastest_volume) || 0,
