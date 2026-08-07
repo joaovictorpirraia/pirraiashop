@@ -455,16 +455,10 @@ async function importarLinkAliexpress(url: string) {
     }
     itemId = id;
 
+    // detalharProdutos já gera o link de afiliado real por produto (via link.generate)
     const [produto] = await ali!.detalharProdutos([id]);
     if (!produto) {
       throw new Error("produto não encontrado na API de afiliado (pode estar fora do programa)");
-    }
-
-    // garante o link de afiliado: usa o promotion_link do detalhe ou gera um
-    if (!produto.promotion_link && process.env.ALIEXPRESS_TRACKING_ID) {
-      const alvo = produto.product_detail_url || url;
-      const mapa = await ali!.gerarLinks([alvo]);
-      produto.promotion_link = mapa[alvo] ?? Object.values(mapa)[0];
     }
 
     const titulo = await curarLinhaDireta(supabase, paraProdutoAli(produto));
