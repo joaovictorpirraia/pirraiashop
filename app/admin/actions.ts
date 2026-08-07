@@ -828,29 +828,53 @@ export async function alternarDestaque(formData: FormData) {
   revalidar();
 }
 
-/** Move um item pra cima/baixo trocando a ordem com o vizinho. */
+/**
+ * Move um item pra cima/baixo na vitrine.
+ *
+ * Ordena os links EXATAMENTE como a view `vitrine` mostra (destaque desc, ordem asc,
+ * score_ia desc) — senão o "vizinho" que o mover troca não é o vizinho da tela (os
+ * destaque e não-destaque ficam intercalados por `ordem`, e a troca cai no item
+ * errado → parece que a seta não funciona). Depois de trocar as posições, renumera
+ * o `ordem` de todos em sequência: fica à prova de empate e o `ordem` passa a bater
+ * com a ordem exibida.
+ */
 export async function moverLink(formData: FormData) {
   const linkId = Number(formData.get("linkId"));
   const direcao = String(formData.get("direcao"));
   if (!linkId) return;
 
   const supabase = supabaseAdmin();
-  const { data: links } = await supabase
+  const { data } = await supabase
     .from("links")
-    .select("id, ordem")
-    .eq("ativo", true)
-    .order("ordem", { ascending: true });
-  if (!links) return;
+    .select("id, ordem, destaque, produtos(score_ia)")
+    .eq("ativo", true);
+  if (!data) return;
+
+  const scoreDe = (l: { produtos: unknown }): number => {
+    const p = l.produtos as { score_ia: number | null } | { score_ia: number | null }[] | null;
+    const s = Array.isArray(p) ? p[0]?.score_ia : p?.score_ia;
+    return s ?? -1;
+  };
+
+  const links = [...data].sort((a, b) => {
+    if (a.destaque !== b.destaque) return a.destaque ? -1 : 1;
+    if ((a.ordem ?? 0) !== (b.ordem ?? 0)) return (a.ordem ?? 0) - (b.ordem ?? 0);
+    return scoreDe(b) - scoreDe(a);
+  });
 
   const idx = links.findIndex((l) => l.id === linkId);
   if (idx < 0) return;
   const alvo = direcao === "cima" ? idx - 1 : idx + 1;
   if (alvo < 0 || alvo >= links.length) return;
 
-  const a = links[idx];
-  const b = links[alvo];
-  await supabase.from("links").update({ ordem: b.ordem }).eq("id", a.id);
-  await supabase.from("links").update({ ordem: a.ordem }).eq("id", b.id);
+  [links[idx], links[alvo]] = [links[alvo], links[idx]];
+
+  // renumera todos em sequência (só grava quem mudou)
+  await Promise.all(
+    links.map((l, i) =>
+      (l.ordem ?? -1) === i ? null : supabase.from("links").update({ ordem: i }).eq("id", l.id),
+    ),
+  );
   revalidar();
 }
 
