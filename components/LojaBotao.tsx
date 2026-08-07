@@ -2,6 +2,7 @@
  * Botão "Ver na loja", com cor e texto por marca (derivado de item.loja):
  *  - Shopee → laranja Shopee
  *  - Mercado Livre → amarelo ML, texto escuro
+ *  - AliExpress → vermelho AliExpress
  *  - resto (tiktok/manual sem link reconhecido) → cai no padrão Shopee
  */
 function infoLoja(loja: string): { texto: string; classe: string } {
@@ -10,6 +11,9 @@ function infoLoja(loja: string): { texto: string; classe: string } {
       texto: "Ver no Mercado Livre",
       classe: "bg-[#FFE600] text-[#2D3277] hover:brightness-95",
     };
+  }
+  if (loja === "aliexpress") {
+    return { texto: "Ver na AliExpress", classe: "bg-[#E62E04] text-white hover:brightness-95" };
   }
   if (loja === "tiktok") {
     return { texto: "Ver no TikTok Shop", classe: "bg-tinta text-white hover:bg-black" };
