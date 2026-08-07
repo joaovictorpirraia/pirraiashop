@@ -7,8 +7,21 @@ import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes, classificarCategoria } from "@/lib/curadoria";
 import { buscarItens } from "@/lib/mercadolivre";
-import { ingerirItensML, ingerirOfertas } from "@/lib/ingest";
+import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
+import { AliexpressAfiliado, idProdutoAli, paraProdutoAli } from "@/lib/aliexpress";
+
+/** Instancia o cliente da AliExpress a partir do env; null se faltar credencial. */
+function aliClient(): AliexpressAfiliado | null {
+  const appKey = process.env.ALIEXPRESS_APP_KEY;
+  const appSecret = process.env.ALIEXPRESS_APP_SECRET;
+  if (!appKey || !appSecret) return null;
+  return new AliexpressAfiliado({
+    appKey,
+    appSecret,
+    trackingId: process.env.ALIEXPRESS_TRACKING_ID,
+  });
+}
 
 function revalidar() {
   revalidatePath("/admin");
@@ -115,6 +128,54 @@ export async function importarML(formData: FormData) {
 
   revalidar();
   redirect(destino); // fora do try: o NEXT_REDIRECT não é engolido pelo catch
+}
+
+/**
+ * Importa produtos da AliExpress por palavra-chave pra fila de curadoria ('novo').
+ * Com ALIEXPRESS_TRACKING_ID definido, o promotion_link já vem e pré-preenche o
+ * Curar. Gated em ALIEXPRESS_APP_KEY/SECRET. Requer a migration 008 aplicada.
+ * Volta pro /admin com ?ali=<gravadas> (ou ?ali_erro).
+ */
+export async function importarAliexpress(formData: FormData) {
+  const q = String(formData.get("q") ?? "").trim();
+  if (!q) redirect("/admin?ali_erro=vazio");
+
+  const ali = aliClient();
+  if (!ali) {
+    redirect("/admin?ali_erro=" + encodeURIComponent("ALIEXPRESS_APP_KEY/SECRET ausentes no servidor"));
+  }
+
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  try {
+    const itens = await ali!.buscarProdutos({ keywords: q, pageSize: 50 });
+    const res = await ingerirItensAli(supabase, itens);
+    await supabase.from("execucoes").insert({
+      job: "ingest_aliexpress",
+      ok: res.erros === 0,
+      itens: res.gravadas,
+      detalhe: { q, origem: "admin", ...res },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino =
+      res.erros > 0
+        ? `/admin?ali_erro=${encodeURIComponent(res.detalhe ?? "1")}`
+        : `/admin?ali=${res.gravadas}`;
+  } catch (e) {
+    const msg = (e as Error).message;
+    await supabase.from("execucoes").insert({
+      job: "ingest_aliexpress",
+      ok: false,
+      itens: 0,
+      detalhe: { q, origem: "admin", erro: msg },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = `/admin?ali_erro=${encodeURIComponent(msg)}`;
+  }
+
+  revalidar();
+  redirect(destino);
 }
 
 /** Reordena a vitrine por performance (cliques) + potencial (score_ia). */
@@ -306,6 +367,12 @@ export async function importarPorLink(formData: FormData) {
         ),
     );
   }
+
+  // AliExpress: resolve o produto pela API de afiliado (detalhe + gera link se preciso)
+  if (/aliexpress\.|a\.aliexpress|s\.click\.aliexpress|aliexpress-media/i.test(url)) {
+    return importarLinkAliexpress(url);
+  }
+
   const m =
     url.match(/-i\.(\d+)\.(\d+)/) ||
     url.match(/\/product\/(\d+)\/(\d+)/) ||
@@ -330,73 +397,16 @@ export async function importarPorLink(formData: FormData) {
       throw new Error("produto não encontrado na Open API (pode não estar no programa de afiliado)");
     }
 
-    const linha = paraProduto(oferta);
-    // categoria via IA, na taxonomia cadastrada
-    const { data: cats } = await supabase
-      .from("categorias")
-      .select("nome")
-      .order("ordem", { ascending: true });
-    const categoria = await classificarCategoria(
-      linha.titulo,
-      (cats ?? []).map((c) => c.nome as string),
-    );
-
-    // upsert do produto já como 'curado' com a categoria
-    const { status: _status, ...resto } = linha;
-    const { data: prod, error: e1 } = await supabase
-      .from("produtos")
-      .upsert(
-        { ...resto, categoria: categoria ?? null, status: "curado" },
-        { onConflict: "origem,item_id,shop_id" },
-      )
-      .select("id")
-      .single();
-    if (e1 || !prod) throw new Error(e1?.message ?? "falha ao gravar o produto");
-
-    // cria o link (offerLink = afiliado) se ainda não tiver um ativo
-    const shortUrl = linha.link_afiliado || linha.url_produto;
-    const { data: linkAtivo } = await supabase
-      .from("links")
-      .select("id")
-      .eq("produto_id", prod.id)
-      .eq("ativo", true)
-      .maybeSingle();
-    if (!linkAtivo && shortUrl) {
-      let slug = slugify(linha.titulo).slice(0, 60) || `produto-${prod.id}`;
-      const raiz = slug;
-      for (let i = 2; i < 60; i++) {
-        const { data: existe } = await supabase
-          .from("links")
-          .select("id")
-          .eq("slug", slug)
-          .maybeSingle();
-        if (!existe) break;
-        slug = `${raiz}-${i}`;
-      }
-      const { data: ult } = await supabase
-        .from("links")
-        .select("ordem")
-        .order("ordem", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      await supabase.from("links").insert({
-        produto_id: prod.id,
-        slug,
-        short_url: shortUrl,
-        ativo: true,
-        ordem: (ult?.ordem ?? -1) + 1,
-      });
-      aquecerBanner(slug);
-    }
+    const titulo = await curarLinhaDireta(supabase, paraProduto(oferta));
 
     await supabase.from("execucoes").insert({
       job: "importar_link",
       ok: true,
       itens: 1,
-      detalhe: { itemId, titulo: linha.titulo, categoria },
+      detalhe: { itemId, titulo },
       duracao_ms: Date.now() - inicio,
     });
-    destino = "/admin?imp=" + encodeURIComponent(linha.titulo);
+    destino = "/admin?imp=" + encodeURIComponent(titulo);
   } catch (e) {
     const msg = (e as Error).message;
     await supabase.from("execucoes").insert({
@@ -411,6 +421,144 @@ export async function importarPorLink(formData: FormData) {
 
   revalidar();
   redirect(destino);
+}
+
+/**
+ * Importa um produto da AliExpress a partir do link colado: pega o detalhe pela API
+ * de afiliado e, se o item ainda não trouxe promotion_link, gera um com o tracking_id.
+ * Cai direto na vitrine ('curado'). Short link (s.click.aliexpress) é resolvido
+ * seguindo o redirect pra extrair o product_id.
+ */
+async function importarLinkAliexpress(url: string) {
+  const ali = aliClient();
+  if (!ali) {
+    redirect("/admin?imp_erro=" + encodeURIComponent("AliExpress não configurada no servidor"));
+  }
+
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  let itemId = 0;
+  try {
+    // extrai o id; se for short link sem id, segue o redirect pra achar a URL final
+    let id = idProdutoAli(url);
+    if (!id) {
+      try {
+        const r = await fetch(url, { redirect: "follow" });
+        id = idProdutoAli(r.url);
+      } catch {
+        /* segue e falha com mensagem clara abaixo */
+      }
+    }
+    if (!id) {
+      throw new Error("não achei o id do produto no link — cole o link completo do item (…/item/<id>.html)");
+    }
+    itemId = id;
+
+    const [produto] = await ali!.detalharProdutos([id]);
+    if (!produto) {
+      throw new Error("produto não encontrado na API de afiliado (pode estar fora do programa)");
+    }
+
+    // garante o link de afiliado: usa o promotion_link do detalhe ou gera um
+    if (!produto.promotion_link && process.env.ALIEXPRESS_TRACKING_ID) {
+      const alvo = produto.product_detail_url || url;
+      const mapa = await ali!.gerarLinks([alvo]);
+      produto.promotion_link = mapa[alvo] ?? Object.values(mapa)[0];
+    }
+
+    const titulo = await curarLinhaDireta(supabase, paraProdutoAli(produto));
+
+    await supabase.from("execucoes").insert({
+      job: "importar_link",
+      ok: true,
+      itens: 1,
+      detalhe: { origem: "aliexpress", itemId, titulo },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = "/admin?imp=" + encodeURIComponent(titulo);
+  } catch (e) {
+    const msg = (e as Error).message;
+    await supabase.from("execucoes").insert({
+      job: "importar_link",
+      ok: false,
+      itens: 0,
+      detalhe: { origem: "aliexpress", itemId, erro: msg },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = "/admin?imp_erro=" + encodeURIComponent(msg);
+  }
+
+  revalidar();
+  redirect(destino);
+}
+
+/**
+ * Cura uma linha normalizada direto pra vitrine: classifica a categoria com IA,
+ * faz upsert como 'curado' e cria o link de afiliado (com slug único) se ainda não
+ * houver um ativo. Pré-aquece o banner OG. Devolve o título. Compartilhado pelos
+ * importadores por link (Shopee/AliExpress) — mesma taxonomia, mesmo fluxo.
+ */
+async function curarLinhaDireta(
+  supabase: ReturnType<typeof supabaseAdmin>,
+  linha: { titulo: string; link_afiliado: string | null; url_produto: string } & Record<string, unknown>,
+): Promise<string> {
+  const { data: cats } = await supabase
+    .from("categorias")
+    .select("nome")
+    .order("ordem", { ascending: true });
+  const categoria = await classificarCategoria(
+    linha.titulo,
+    (cats ?? []).map((c) => c.nome as string),
+  );
+
+  const { status: _status, ...resto } = linha;
+  const { data: prod, error: e1 } = await supabase
+    .from("produtos")
+    .upsert(
+      { ...resto, categoria: categoria ?? null, status: "curado" },
+      { onConflict: "origem,item_id,shop_id" },
+    )
+    .select("id")
+    .single();
+  if (e1 || !prod) throw new Error(e1?.message ?? "falha ao gravar o produto");
+
+  const shortUrl = linha.link_afiliado || linha.url_produto;
+  const { data: linkAtivo } = await supabase
+    .from("links")
+    .select("id")
+    .eq("produto_id", prod.id)
+    .eq("ativo", true)
+    .maybeSingle();
+  if (!linkAtivo && shortUrl) {
+    let slug = slugify(linha.titulo).slice(0, 60) || `produto-${prod.id}`;
+    const raiz = slug;
+    for (let i = 2; i < 60; i++) {
+      const { data: existe } = await supabase
+        .from("links")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!existe) break;
+      slug = `${raiz}-${i}`;
+    }
+    const { data: ult } = await supabase
+      .from("links")
+      .select("ordem")
+      .order("ordem", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    await supabase.from("links").insert({
+      produto_id: prod.id,
+      slug,
+      short_url: shortUrl,
+      ativo: true,
+      ordem: (ult?.ordem ?? -1) + 1,
+    });
+    aquecerBanner(slug);
+  }
+
+  return linha.titulo;
 }
 
 /**

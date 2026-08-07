@@ -11,6 +11,7 @@ import {
   pontuarVitrine,
   importarML,
   importarShopee,
+  importarAliexpress,
   importarPorLink,
   limparExemplos,
 } from "./actions";
@@ -76,6 +77,8 @@ export default async function Admin({
     ml_erro?: string;
     shopee?: string;
     shopee_erro?: string;
+    ali?: string;
+    ali_erro?: string;
     imp?: string;
     imp_erro?: string;
     ver?: string;
@@ -186,19 +189,19 @@ export default async function Admin({
       </header>
 
       <main className="mx-auto max-w-3xl space-y-10 px-5 py-8">
-        {/* IMPORTAR POR LINK — cola o link do produto Shopee → vitrine pronto */}
+        {/* IMPORTAR POR LINK — cola o link do produto Shopee/AliExpress → vitrine pronto */}
         <section className="rounded-2xl bg-white p-4 shadow-carta">
           <div className="mb-2 flex items-baseline justify-between gap-2">
             <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
               Importar por link
             </h2>
-            <span className="text-xs text-fumo">Shopee · vai direto pra vitrine</span>
+            <span className="text-xs text-fumo">Shopee · AliExpress · vai direto pra vitrine</span>
           </div>
           <form action={importarPorLink} className="flex flex-col gap-2 sm:flex-row">
             <input
               name="url"
               required
-              placeholder="cola o link do produto na Shopee…"
+              placeholder="cola o link do produto (Shopee ou AliExpress)…"
               className="flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia"
             />
             <button
@@ -313,6 +316,22 @@ export default async function Admin({
                   Importar Shopee
                 </button>
               </form>
+              {/* Importar da AliExpress por palavra-chave (API de afiliado) */}
+              <form action={importarAliexpress} className="flex items-center gap-1.5">
+                <input
+                  name="q"
+                  required
+                  placeholder="buscar na AliExpress…"
+                  className="w-40 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
+                />
+                <button
+                  type="submit"
+                  className="rounded-full bg-[#E62E04] px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-95"
+                  title="Busca produtos na AliExpress (API de afiliado) e joga na fila, já com o link de afiliado."
+                >
+                  Importar AliExpress
+                </button>
+              </form>
               {/* Importar do Mercado Livre por palavra-chave */}
               <form action={importarML} className="flex items-center gap-1.5">
                 <input
@@ -342,6 +361,19 @@ export default async function Admin({
               {searchParams.shopee_erro === "vazio"
                 ? "Digite uma palavra-chave pra buscar na Shopee."
                 : `Falha ao importar da Shopee: ${searchParams.shopee_erro}`}
+            </p>
+          )}
+
+          {searchParams.ali != null && (
+            <p className="mb-3 rounded-xl border border-[#E62E04]/20 bg-[#E62E04]/10 px-4 py-2.5 text-sm font-medium text-[#a8250a]">
+              AliExpress: {searchParams.ali} produto(s) na fila.
+            </p>
+          )}
+          {searchParams.ali_erro != null && (
+            <p className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
+              {searchParams.ali_erro === "vazio"
+                ? "Digite uma palavra-chave pra buscar na AliExpress."
+                : `Falha ao importar da AliExpress: ${searchParams.ali_erro}`}
             </p>
           )}
 
