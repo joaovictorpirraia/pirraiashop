@@ -99,8 +99,13 @@ export async function GET(
       antigo && antigo > preco
         ? `🔥 De ${brl(antigo)} por ${brl(preco)}${p.desconto_pct ? ` — ${p.desconto_pct}% OFF` : ""} · aproveita!`
         : `${brl(preco)} · achadinho garimpado 🛍️`;
-    // og:image = banner landscape 1200x630 gerado (dispara o card GRANDE do WhatsApp)
-    const banner = `${url.origin}/api/og/${encodeURIComponent(slug)}`;
+    // og:image = PNG do banner direto no Storage (sem redirect — o robô do WhatsApp
+    // não segue 302 na imagem). Foi pré-gerado via /api/og; produto novo é aquecido
+    // na curadoria. Fallback pro /api/og se faltar a env do Supabase.
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const banner = base
+      ? `${base}/storage/v1/object/public/banners/${slug}.png`
+      : `${url.origin}/api/og/${encodeURIComponent(slug)}`;
     return new NextResponse(
       paginaOg({ titulo: p.titulo, descricao, imagem: banner, preco, url: url.href }),
       { headers: { "content-type": "text/html; charset=utf-8" } },
