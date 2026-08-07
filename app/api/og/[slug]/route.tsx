@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { NextResponse } from "next/server";
+import { PNG } from "pngjs";
+import { encode as encodeJpeg } from "jpeg-js";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -29,13 +31,18 @@ function brl(n: number): string {
 /**
  * Banner 1200x630 (paisagem) pro card GRANDE do WhatsApp. Gera 1x e guarda no
  * Storage (bucket público "banners"); as chamadas seguintes só redirecionam pro
- * PNG no CDN (rápido) — o robô do WhatsApp tem timeout curto e não pode bater no
- * render de ~2s a cada acesso.
+ * arquivo no CDN (rápido) — o robô do WhatsApp tem timeout curto e não pode bater
+ * no render de ~2s a cada acesso.
+ *
+ * Saída em JPEG, não PNG: o WhatsApp cai pro thumbnail PEQUENO quando a imagem
+ * passa de ~300 KB, e o PNG de foto do next/og dá ~500 KB. O next/og só gera PNG,
+ * então convertemos PNG→JPEG em JS puro (pngjs + jpeg-js, sem binário nativo — o
+ * sharp derrubava o build do EasyPanel). JPEG de foto fica ~60-90 KB → card grande.
  */
 export async function GET(_req: Request, { params }: { params: { slug: string } }) {
   const slug = params.slug;
   const supabase = supabaseAdmin();
-  const caminho = `${slug}.png`;
+  const caminho = `${slug}.jpg`;
   const publicUrl = supabase.storage.from("banners").getPublicUrl(caminho).data.publicUrl;
 
   // já gerado? redireciona pro CDN
@@ -146,16 +153,19 @@ export async function GET(_req: Request, { params }: { params: { slug: string } 
     },
   );
 
-  // guarda no Storage e redireciona pro CDN; se o upload falhar, devolve o PNG direto
-  const bytes = Buffer.from(await resp.arrayBuffer());
+  // PNG do next/og → JPEG leve (< 300 KB) pro card grande do WhatsApp
+  const png = PNG.sync.read(Buffer.from(await resp.arrayBuffer()));
+  const bytes = encodeJpeg({ data: png.data, width: png.width, height: png.height }, 72).data;
+
+  // guarda no Storage e redireciona pro CDN; se o upload falhar, devolve o JPEG direto
   try {
     await supabase.storage
       .from("banners")
-      .upload(caminho, bytes, { contentType: "image/png", upsert: true });
+      .upload(caminho, bytes, { contentType: "image/jpeg", upsert: true });
     return NextResponse.redirect(publicUrl, 302);
   } catch {
     return new NextResponse(bytes, {
-      headers: { "content-type": "image/png", "cache-control": "public, max-age=86400" },
+      headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=86400" },
     });
   }
 }
