@@ -14,6 +14,7 @@ import {
   importarAliexpress,
   importarPorLink,
   limparExemplos,
+  limparFila,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +84,8 @@ export default async function Admin({
     imp_erro?: string;
     ver?: string;
     q?: string;
+    limpar?: string;
+    fila_limpa?: string;
   };
 }) {
   const supabase = supabaseAdmin();
@@ -350,6 +353,47 @@ export default async function Admin({
               </form>
             </div>
           </div>
+
+          {/* LIMPAR FILA — 2 passos pra não zerar tudo sem querer. Descarte reversível. */}
+          {(nFila ?? 0) > 0 &&
+            (searchParams.limpar === "1" ? (
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                <span className="text-sm font-medium text-red-700">
+                  Descartar os {nFila} produtos da fila? É reversível — não apaga do banco, só some da fila.
+                </span>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={`/admin?ver=fila${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+                    className="text-sm font-semibold text-fumo hover:text-tinta"
+                  >
+                    Cancelar
+                  </a>
+                  <form action={limparFila}>
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-red-600 px-4 py-1.5 text-sm font-bold text-white transition hover:brightness-95"
+                    >
+                      Confirmar limpeza
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-3 flex justify-end">
+                <a
+                  href={`/admin?ver=fila&limpar=1${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+                  className="text-xs font-semibold text-red-600 hover:text-red-700"
+                >
+                  Limpar fila ({nFila})
+                </a>
+              </div>
+            ))}
+
+          {searchParams.fila_limpa != null && (
+            <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
+              Fila limpa: {searchParams.fila_limpa} produto(s) descartado(s).
+            </p>
+          )}
 
           {searchParams.shopee != null && (
             <p className="mb-3 rounded-xl border border-[#EE4D2D]/20 bg-[#EE4D2D]/10 px-4 py-2.5 text-sm font-medium text-[#a8391e]">
