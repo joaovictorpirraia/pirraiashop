@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic";
 export default function Novo({
   searchParams,
 }: {
-  searchParams: { erro?: string };
+  searchParams: { erro?: string; link?: string };
 }) {
   const erro = searchParams.erro === "1";
+  const linkColado = (searchParams.link ?? "").trim();
 
   return (
     <div className="min-h-screen bg-areia">
@@ -39,6 +40,12 @@ export default function Novo({
           </div>
         )}
 
+        {linkColado && (
+          <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+            Link de afiliado colado. Agora completa título, preço e imagem da página do produto.
+          </div>
+        )}
+
         <form
           action={adicionarProduto}
           autoComplete="off"
@@ -49,6 +56,7 @@ export default function Novo({
             nome="short_url"
             rotulo="Link de afiliado (short_url) *"
             placeholder="https://s.shopee.com.br/..."
+            defaultValue={linkColado}
             required
           />
           <Campo
@@ -99,12 +107,14 @@ function Campo({
   placeholder,
   tipo = "text",
   required = false,
+  defaultValue,
 }: {
   nome: string;
   rotulo: string;
   placeholder?: string;
   tipo?: string;
   required?: boolean;
+  defaultValue?: string;
 }) {
   return (
     <label className="block flex-1 text-xs font-medium text-fumo">
@@ -115,6 +125,7 @@ function Campo({
         step={tipo === "number" ? "0.01" : undefined}
         required={required}
         placeholder={placeholder}
+        defaultValue={defaultValue}
         className="mt-1 w-full rounded-lg border border-black/10 bg-white px-2.5 py-2 text-sm text-tinta outline-none focus:border-pirraia"
       />
     </label>
