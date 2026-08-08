@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { instagramConfigurado } from "@/lib/instagram";
-import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel } from "../actions";
+import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel, removerDoCarrossel } from "../actions";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { TEMAS } from "@/lib/loop";
 
@@ -62,10 +62,12 @@ export default async function InstagramAdmin({
   // mapa de produtos referenciados pelos carrosséis (pra thumbnails)
   const idsRef = Array.from(new Set(carrosseis.flatMap((c) => c.produto_ids ?? [])));
   const { data: refRaw } = idsRef.length
-    ? await supabase.from("produtos").select("id, titulo, imagem_url").in("id", idsRef)
+    ? await supabase.from("produtos").select("id, titulo, imagem_url, preco").in("id", idsRef)
     : { data: [] };
   const mapaProd = new Map(
-    ((refRaw ?? []) as { id: number; titulo: string; imagem_url: string | null }[]).map((p) => [p.id, p]),
+    ((refRaw ?? []) as { id: number; titulo: string; imagem_url: string | null; preco: string | number | null }[]).map(
+      (p) => [p.id, p],
+    ),
   );
 
   return (
@@ -212,23 +214,50 @@ export default async function InstagramAdmin({
                     />
                     <span className="mt-1 text-[10px] font-bold uppercase text-pirraia">capa</span>
                   </div>
-                  {/* thumbs dos produtos */}
-                  <div className="flex flex-wrap gap-2">
-                    {(c.produto_ids ?? []).map((pid) => {
+                  {/* produtos do rascunho: foto + título + preço + remover */}
+                  <div className="flex flex-1 flex-wrap gap-2">
+                    {(c.produto_ids ?? []).map((pid, i) => {
                       const p = mapaProd.get(pid);
+                      const foraDoPost = i >= 9; // além dos 9 primeiros não vai pro post
                       return (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <div
                           key={pid}
-                          src={p?.imagem_url ?? ""}
-                          alt={p?.titulo ?? ""}
-                          title={p?.titulo ?? ""}
-                          className="h-[120px] w-[120px] rounded-lg object-cover"
-                        />
+                          className={`relative w-[124px] ${foraDoPost ? "opacity-45" : ""}`}
+                          title={foraDoPost ? "Fora do post (o Instagram leva só 9). Remova outros pra este entrar." : p?.titulo ?? ""}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={p?.imagem_url ?? ""}
+                            alt={p?.titulo ?? ""}
+                            className="h-[124px] w-[124px] rounded-lg object-cover"
+                          />
+                          <form action={removerDoCarrossel} className="absolute right-1 top-1">
+                            <input type="hidden" name="carrosselId" value={c.id} />
+                            <input type="hidden" name="produtoId" value={pid} />
+                            <button
+                              type="submit"
+                              aria-label="Remover do carrossel"
+                              title="Remover do carrossel"
+                              className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-sm font-bold text-fumo shadow transition-colors hover:text-red-600"
+                            >
+                              ×
+                            </button>
+                          </form>
+                          <div className="mt-1 line-clamp-2 text-[11px] font-medium text-tinta">
+                            {p?.titulo ?? `#${pid}`}
+                          </div>
+                          <div className="text-[11px] font-bold text-tinta">{brl(Number(p?.preco ?? 0))}</div>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
+
+                <p className="mt-2 text-xs text-fumo">
+                  {(c.produto_ids ?? []).length} produtos no rascunho · o post leva a capa +{" "}
+                  {Math.min(9, (c.produto_ids ?? []).length)} (os além do 9º ficam esmaecidos e não vão) —
+                  remove os que não curtiu.
+                </p>
 
                 {c.status === "erro" && c.erro && (
                   <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">

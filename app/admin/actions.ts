@@ -1049,7 +1049,7 @@ export async function montarCarrosselAuto() {
   const inicio = Date.now();
   let destino: string;
   try {
-    const res = await montarRascunhoAuto(supabase, 8);
+    const res = await montarRascunhoAuto(supabase, 12);
     await supabase.from("execucoes").insert({
       job: "montar_carrossel_auto",
       ok: true,
@@ -1088,7 +1088,7 @@ export async function rodarLoopDoDia(formData?: FormData) {
   const inicio = Date.now();
   let destino: string;
   try {
-    const res = await rodarLoopDiario(supabase, 8, keyword);
+    const res = await rodarLoopDiario(supabase, 12, keyword);
     await supabase.from("execucoes").insert({
       job: "loop_diario",
       ok: true,
@@ -1133,8 +1133,11 @@ export async function publicarCarrossel(formData: FormData) {
     if (!c) throw new Error("carrossel não encontrado");
     if (c.status === "publicado") throw new Error("esse carrossel já foi publicado");
 
-    const ids = (c.produto_ids as number[]) ?? [];
-    if (ids.length < 2) throw new Error("carrossel precisa de 2 a 9 produtos");
+    const todos = (c.produto_ids as number[]) ?? [];
+    if (todos.length < 2) throw new Error("carrossel precisa de pelo menos 2 produtos");
+    // o Instagram aceita 10 slides: capa + até 9 produtos. Se o rascunho tem mais
+    // (o dono não removeu), publica os 9 primeiros.
+    const ids = todos.slice(0, 9);
 
     const base = process.env.NEXT_PUBLIC_SITE_URL || "https://pirraiashop.com.br";
     const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -1172,6 +1175,24 @@ export async function publicarCarrossel(formData: FormData) {
 
   revalidar();
   redirect("/admin/instagram?ok=publicado");
+}
+
+/** Remove UM produto de um rascunho de carrossel (o dono tira o que não gostou). */
+export async function removerDoCarrossel(formData: FormData) {
+  const carrosselId = Number(formData.get("carrosselId"));
+  const produtoId = Number(formData.get("produtoId"));
+  if (!carrosselId || !produtoId) return;
+  const supabase = supabaseAdmin();
+  const { data: c } = await supabase
+    .from("carrosseis")
+    .select("produto_ids")
+    .eq("id", carrosselId)
+    .maybeSingle();
+  if (!c) return;
+  const novos = ((c.produto_ids as number[]) ?? []).filter((pid) => pid !== produtoId);
+  await supabase.from("carrosseis").update({ produto_ids: novos }).eq("id", carrosselId);
+  revalidar();
+  redirect("/admin/instagram");
 }
 
 /** Descarta um rascunho de carrossel (apaga o registro). */

@@ -6,13 +6,27 @@ import { categorizarProdutos } from "./curadoria";
 /** Temas do dia, em rodízio. keyword = o que busca na Shopee. */
 export const TEMAS: Array<{ nome: string; keyword: string }> = [
   { nome: "Relógios masculinos", keyword: "relogio masculino" },
+  { nome: "Relógios femininos", keyword: "relogio feminino" },
   { nome: "Organização de casa", keyword: "organizador casa" },
   { nome: "Cozinha", keyword: "utensilios cozinha" },
   { nome: "Beleza e skincare", keyword: "skincare" },
+  { nome: "Maquiagem", keyword: "maquiagem" },
+  { nome: "Cabelo", keyword: "cuidado cabelo" },
   { nome: "Gadgets e tech", keyword: "gadget util" },
+  { nome: "Acessórios gamer", keyword: "acessorio gamer" },
+  { nome: "Home office", keyword: "home office mesa" },
   { nome: "Decoração de quarto", keyword: "decoracao quarto" },
+  { nome: "Iluminação LED", keyword: "luminaria led" },
   { nome: "Itens de viagem", keyword: "kit viagem" },
   { nome: "Acessórios femininos", keyword: "acessorio feminino" },
+  { nome: "Moda masculina", keyword: "moda masculina" },
+  { nome: "Fitness e academia", keyword: "acessorio academia" },
+  { nome: "Pet", keyword: "acessorio pet" },
+  { nome: "Bebê e infantil", keyword: "produtos bebe" },
+  { nome: "Ferramentas", keyword: "ferramentas" },
+  { nome: "Automotivo", keyword: "acessorio carro" },
+  { nome: "Banheiro", keyword: "organizador banheiro" },
+  { nome: "Churrasco", keyword: "kit churrasco" },
 ];
 
 /** Escolhe o tema do dia por rotação determinística (data de Brasília). */

@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, erro: "OPENAI_API_KEY ausente — legenda não configurada" });
   }
 
-  const n = Math.min(Math.max(Number(request.nextUrl.searchParams.get("n")) || 8, 2), 9);
+  const n = Math.min(Math.max(Number(request.nextUrl.searchParams.get("n")) || 12, 2), 12);
   const inicio = Date.now();
   const supabase = supabaseAdmin();
 
