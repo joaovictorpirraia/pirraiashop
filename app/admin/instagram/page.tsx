@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { instagramConfigurado } from "@/lib/instagram";
-import { montarCarrossel, publicarCarrossel, descartarCarrossel } from "../actions";
+import { montarCarrossel, montarCarrosselAuto, publicarCarrossel, descartarCarrossel } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -104,11 +104,25 @@ export default async function InstagramAdmin({
 
         {/* MONTAR CARROSSEL */}
         <section className="rounded-2xl bg-white p-5 shadow-carta">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">Montar carrossel</h2>
-          <p className="mt-1 text-xs text-fumo">
-            Marca de 2 a 9 produtos. A IA escreve o gancho da capa + a legenda “achados do dia” e monta um
-            rascunho pra você revisar. A capa (foto + gancho) entra como 1º slide automaticamente.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">Montar carrossel</h2>
+              <p className="mt-1 max-w-xl text-xs text-fumo">
+                Marca de 2 a 9 produtos. A IA escreve o gancho da capa + a legenda “achados do dia” e monta um
+                rascunho pra você revisar. A capa (foto + gancho) entra como 1º slide automaticamente.
+              </p>
+            </div>
+            {/* automático: a IA escolhe os produtos do dia sozinha */}
+            <form action={montarCarrosselAuto}>
+              <button
+                type="submit"
+                title="A IA escolhe os melhores produtos do dia (temático, sem repetir os já postados) e monta o rascunho sozinha."
+                className="whitespace-nowrap rounded-full bg-tinta px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-pirraia"
+              >
+                Montar automático
+              </button>
+            </form>
+          </div>
           <form action={montarCarrossel} className="mt-4">
             <div className="grid max-h-[420px] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 lg:grid-cols-4">
               {produtos.map((p) => (

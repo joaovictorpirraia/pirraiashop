@@ -6,8 +6,9 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes, classificarCategoria } from "@/lib/curadoria";
-import { gerarConteudo, salvarRascunho, gerarLegendaCarrossel, type ProdutoParaConteudo } from "@/lib/conteudo";
+import { gerarConteudo, salvarRascunho, type ProdutoParaConteudo } from "@/lib/conteudo";
 import { publicarCarrossel as publicarCarrosselIG } from "@/lib/instagram";
+import { inserirRascunhoCarrossel, montarRascunhoAuto } from "@/lib/carrossel";
 import { buscarItens } from "@/lib/mercadolivre";
 import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
@@ -991,28 +992,47 @@ export async function montarCarrossel(formData: FormData) {
       .filter((p): p is NonNullable<typeof p> => Boolean(p));
     if (ordenados.length < 2) throw new Error("produtos não encontrados");
 
-    const { gancho, tema_fundo, legenda, palavras, hashtags } = await gerarLegendaCarrossel(
-      ordenados.map((p) => ({ titulo: p.titulo, preco: p.preco, desconto_pct: p.desconto_pct })),
-    );
-    const partes = [legenda];
-    if (hashtags.length) partes.push(hashtags.map((h) => `#${h}`).join(" "));
-    if (palavras.length) partes.push(palavras.join(", "));
-    const legendaFinal = partes.join("\n\n");
-
-    const { error } = await supabase.from("carrosseis").insert({
-      produto_ids: ids,
-      gancho,
-      tema_fundo,
-      legenda: legendaFinal,
-      status: "rascunho",
-    });
-    if (error) throw new Error(error.message);
+    await inserirRascunhoCarrossel(supabase, ordenados);
   } catch (e) {
     redirect("/admin/instagram?erro=" + encodeURIComponent((e as Error).message));
   }
 
   revalidar();
   redirect("/admin/instagram?ok=montado");
+}
+
+/**
+ * Monta um rascunho de carrossel AUTOMÁTICO: a IA escolhe os produtos do dia
+ * (temático, sem repetir os postados nos últimos 14 dias), gera capa + legenda e
+ * deixa o rascunho pronto pra revisar/publicar. Botão "Montar automático" e o cron.
+ */
+export async function montarCarrosselAuto() {
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  try {
+    const res = await montarRascunhoAuto(supabase, 8);
+    await supabase.from("execucoes").insert({
+      job: "montar_carrossel_auto",
+      ok: true,
+      itens: res.n,
+      detalhe: { origem: "admin", ...res },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = "/admin/instagram?ok=montado";
+  } catch (e) {
+    const msg = (e as Error).message;
+    await supabase.from("execucoes").insert({
+      job: "montar_carrossel_auto",
+      ok: false,
+      itens: 0,
+      detalhe: { origem: "admin", erro: msg },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = "/admin/instagram?erro=" + encodeURIComponent(msg);
+  }
+  revalidar();
+  redirect(destino);
 }
 
 /**
