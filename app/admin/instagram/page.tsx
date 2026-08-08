@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { instagramConfigurado } from "@/lib/instagram";
-import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel, removerDoCarrossel, atualizarGancho } from "../actions";
+import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel, removerDoCarrossel, atualizarGancho, postarStoryAgora } from "../actions";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { TEMAS } from "@/lib/loop";
 
@@ -59,8 +59,18 @@ export default async function InstagramAdmin({
   const rascunhos = carrosseis.filter((c) => c.status !== "publicado");
   const publicados = carrosseis.filter((c) => c.status === "publicado");
 
-  // mapa de produtos referenciados pelos carrosséis (pra thumbnails)
-  const idsRef = Array.from(new Set(carrosseis.flatMap((c) => c.produto_ids ?? [])));
+  // stories recentes
+  const { data: storiesRaw } = await supabase
+    .from("stories")
+    .select("id, produto_id, ok, criado_em")
+    .order("criado_em", { ascending: false })
+    .limit(14);
+  const storiesRecentes = (storiesRaw ?? []) as Array<{ id: number; produto_id: number; ok: boolean; criado_em: string }>;
+
+  // mapa de produtos referenciados (carrosséis + stories) pra thumbnails
+  const idsRef = Array.from(
+    new Set([...carrosseis.flatMap((c) => c.produto_ids ?? []), ...storiesRecentes.map((s) => s.produto_id)]),
+  );
   const { data: refRaw } = idsRef.length
     ? await supabase.from("produtos").select("id, titulo, imagem_url, preco").in("id", idsRef)
     : { data: [] };
@@ -91,9 +101,11 @@ export default async function InstagramAdmin({
           <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
             {searchParams.ok === "publicado"
               ? "Carrossel publicado no Instagram!"
-              : searchParams.tema
-                ? `Loop do dia rodou (tema: ${searchParams.tema}) — revise o rascunho e publique.`
-                : "Carrossel montado — revise e publique abaixo."}
+              : searchParams.ok === "story"
+                ? "Story publicado no Instagram!"
+                : searchParams.tema
+                  ? `Loop do dia rodou (tema: ${searchParams.tema}) — revise o rascunho e publique.`
+                  : "Carrossel montado — revise e publique abaixo."}
           </p>
         )}
         {searchParams.erro && (
@@ -195,6 +207,51 @@ export default async function InstagramAdmin({
               Montar carrossel
             </BotaoSubmit>
           </form>
+        </section>
+
+        {/* STORIES automáticos */}
+        <section className="rounded-2xl bg-white p-5 shadow-carta">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">Stories automáticos</h2>
+              <p className="mt-1 max-w-2xl text-xs text-fumo">
+                Um cron dispara a arte de um produto no story em cada horário (recomendado 8/dia:
+                09h, 11h, 13h, 15h, 18h, 20h, 22h, 23h). Escolhe da vitrine (ou fila), sem repetir os
+                últimos 2 dias. Sem link clicável (bloqueio da Meta) — a arte manda pro link da bio.
+              </p>
+            </div>
+            <form action={postarStoryAgora}>
+              <BotaoSubmit
+                disabled={!igOn}
+                pendingLabel="Postando story…"
+                title={igOn ? "Posta 1 story agora (teste do fluxo automático)" : "Configure o Instagram no servidor primeiro"}
+                className="whitespace-nowrap rounded-full bg-[#C13584] px-4 py-2 text-xs font-bold text-white transition hover:brightness-95 disabled:opacity-40"
+              >
+                Postar story agora
+              </BotaoSubmit>
+            </form>
+          </div>
+
+          {storiesRecentes.length > 0 && (
+            <div className="mt-4">
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-fumo">Últimos stories</div>
+              <div className="flex flex-wrap gap-2">
+                {storiesRecentes.map((s) => {
+                  const p = mapaProd.get(s.produto_id);
+                  return (
+                    <div key={s.id} className="w-[70px]" title={p?.titulo ?? `#${s.produto_id}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={p?.imagem_url ?? ""}
+                        alt=""
+                        className={`h-[92px] w-[70px] rounded-md object-cover ${s.ok ? "" : "opacity-40 ring-1 ring-red-300"}`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* RASCUNHOS */}
