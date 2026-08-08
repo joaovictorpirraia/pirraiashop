@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ShopeeAffiliate, paraProduto } from "./shopee";
-import { inserirRascunhoCarrossel, faxinaExpirados } from "./carrossel";
+import { inserirRascunhoCarrossel, faxinaExpirados, dedupVisual } from "./carrossel";
 import { categorizarProdutos } from "./curadoria";
 
 /** Temas do dia, em rodízio. keyword = o que busca na Shopee. */
@@ -45,16 +45,20 @@ export async function rodarLoopDiario(
   const { data: up, error } = await supabase
     .from("produtos")
     .upsert(linhas, { onConflict: "origem,item_id,shop_id" })
-    .select("id, vendas, status");
+    .select("id, titulo, preco, desconto_pct, imagem_url, vendas, status");
   if (error) throw new Error(error.message);
 
-  // ranqueia por vendas, tira descartados, pega os n melhores
+  // ranqueia por vendas, tira descartados e DUPLICADOS visuais (mesmo produto de
+  // vendedores diferentes = item_id diferente mas imagem/título iguais), pega os n melhores
   const ranked = (up ?? [])
     .filter((p) => p.status !== "descartado")
-    .sort((a, b) => (Number(b.vendas) || 0) - (Number(a.vendas) || 0))
-    .slice(0, n);
-  const ids = ranked.map((r) => r.id as number);
-  if (ids.length < 2) throw new Error("poucos produtos aproveitáveis no import");
+    .sort((a, b) => (Number(b.vendas) || 0) - (Number(a.vendas) || 0));
+  const escolhidos = dedupVisual(
+    ranked,
+    (p) => p.imagem_url as string,
+    (p) => String(p.titulo),
+  ).slice(0, n);
+  if (escolhidos.length < 2) throw new Error("poucos produtos aproveitáveis no import");
 
   // categoriza em lote os recém-importados (não trava o loop)
   try {
@@ -63,16 +67,15 @@ export async function rodarLoopDiario(
     /* categoria é opcional */
   }
 
-  const { data: prods } = await supabase
-    .from("produtos")
-    .select("id, titulo, preco, desconto_pct")
-    .in("id", ids);
-  const ordenados = ids
-    .map((id) => (prods ?? []).find((p) => p.id === id))
-    .filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const ordenados = escolhidos.map((p) => ({
+    id: p.id as number,
+    titulo: String(p.titulo),
+    preco: p.preco as number | string | null,
+    desconto_pct: p.desconto_pct as number | null,
+  }));
 
   const carrosselId = await inserirRascunhoCarrossel(supabase, ordenados);
   const faxina = await faxinaExpirados(supabase);
 
-  return { tema: tema.nome, keyword: tema.keyword, importados: ids.length, carrosselId, faxina };
+  return { tema: tema.nome, keyword: tema.keyword, importados: escolhidos.length, carrosselId, faxina };
 }
