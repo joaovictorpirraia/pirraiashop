@@ -37,9 +37,11 @@ function tamGancho(n: number): number {
   return 60;
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   const id = Number(params.id);
   if (!id) return new NextResponse("id inválido", { status: 400 });
+  // ?preview=1: devolve os bytes na hora (sem gravar no Storage) pra prévia do admin
+  const preview = new URL(req.url).searchParams.has("preview");
 
   const supabase = supabaseAdmin();
   const { data: c } = await supabase
@@ -173,6 +175,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const png = PNG.sync.read(Buffer.from(await resp.arrayBuffer()));
   const bytes = encodeJpeg({ data: png.data, width: png.width, height: png.height }, 82).data;
+
+  // prévia do admin: devolve os bytes na hora (fresco, sem tocar no Storage)
+  if (preview) {
+    return new NextResponse(bytes, {
+      headers: { "content-type": "image/jpeg", "cache-control": "no-store" },
+    });
+  }
+
   const caminho = `capa-${id}.jpg`;
   const publicUrl = supabase.storage.from("criativos").getPublicUrl(caminho).data.publicUrl;
   try {

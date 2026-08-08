@@ -1177,6 +1177,16 @@ export async function publicarCarrossel(formData: FormData) {
   redirect("/admin/instagram?ok=publicado");
 }
 
+/** Salva o gancho editado do carrossel (pra a prévia da capa atualizar). */
+export async function atualizarGancho(formData: FormData) {
+  const carrosselId = Number(formData.get("carrosselId"));
+  const gancho = String(formData.get("gancho") ?? "").trim();
+  if (!carrosselId) return;
+  await supabaseAdmin().from("carrosseis").update({ gancho }).eq("id", carrosselId);
+  revalidar();
+  redirect("/admin/instagram");
+}
+
 /** Remove UM produto de um rascunho de carrossel (o dono tira o que não gostou). */
 export async function removerDoCarrossel(formData: FormData) {
   const carrosselId = Number(formData.get("carrosselId"));
