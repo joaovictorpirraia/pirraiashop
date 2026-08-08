@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { instagramConfigurado } from "@/lib/instagram";
-import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel, removerDoCarrossel } from "../actions";
+import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel, removerDoCarrossel, atualizarGancho } from "../actions";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { TEMAS } from "@/lib/loop";
 
@@ -208,7 +208,7 @@ export default async function InstagramAdmin({
                   <div className="flex flex-col items-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={`/api/capa/${c.id}`}
+                      src={`/api/capa/${c.id}?preview=1&g=${encodeURIComponent(c.gancho).slice(0, 40)}`}
                       alt="capa do carrossel"
                       className="h-[150px] w-[120px] rounded-lg object-cover ring-2 ring-pirraia"
                     />
@@ -265,17 +265,30 @@ export default async function InstagramAdmin({
                   </p>
                 )}
 
-                <form action={publicarCarrossel} className="mt-3">
+                {/* gancho da capa: form próprio — salva e a prévia da capa atualiza */}
+                <form action={atualizarGancho} className="mt-3">
                   <input type="hidden" name="carrosselId" value={c.id} />
                   <label className="text-xs font-medium text-fumo">
-                    Gancho da capa (edita à vontade — a capa usa este texto)
-                    <input
-                      name="gancho"
-                      defaultValue={c.gancho}
-                      className="mt-1 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-tinta outline-none focus:border-pirraia"
-                    />
+                    Gancho da capa (edita e clica em Atualizar capa pra ver o resultado)
+                    <div className="mt-1 flex gap-2">
+                      <input
+                        name="gancho"
+                        defaultValue={c.gancho}
+                        className="min-w-0 flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-tinta outline-none focus:border-pirraia"
+                      />
+                      <BotaoSubmit
+                        pendingLabel="Atualizando…"
+                        className="shrink-0 rounded-lg border border-black/10 px-4 py-2 text-xs font-bold text-tinta transition-colors hover:bg-areia"
+                      >
+                        Atualizar capa
+                      </BotaoSubmit>
+                    </div>
                   </label>
-                  <label className="mt-3 block text-xs font-medium text-fumo">
+                </form>
+
+                <form action={publicarCarrossel} className="mt-3">
+                  <input type="hidden" name="carrosselId" value={c.id} />
+                  <label className="block text-xs font-medium text-fumo">
                     Legenda (dá pra editar antes de publicar)
                     <textarea
                       name="legenda"
