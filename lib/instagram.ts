@@ -77,6 +77,8 @@ export async function publicarStory(opts: { imageUrl: string }): Promise<{ id: s
     media_type: "STORIES",
     access_token: token,
   });
+  // espera o container ficar pronto (senão o media_publish dá "Media ID is not available")
+  await esperarPronto(creationId, token);
   const mediaId = await graphPost(`${igUserId}/media_publish`, {
     creation_id: creationId,
     access_token: token,
