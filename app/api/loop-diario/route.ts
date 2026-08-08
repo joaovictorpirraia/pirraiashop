@@ -28,11 +28,13 @@ export async function POST(request: NextRequest) {
   }
 
   const n = Math.min(Math.max(Number(request.nextUrl.searchParams.get("n")) || 12, 2), 12);
+  // slot separa os 2 posts do dia (temas diferentes): ex. 0 = noite, 1 = madrugada
+  const slot = Math.min(Math.max(Number(request.nextUrl.searchParams.get("slot")) || 0, 0), 1);
   const inicio = Date.now();
   const supabase = supabaseAdmin();
 
   try {
-    const res = await rodarLoopDiario(supabase, n);
+    const res = await rodarLoopDiario(supabase, n, undefined, slot);
     await supabase.from("execucoes").insert({
       job: "loop_diario",
       ok: true,

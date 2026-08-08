@@ -29,11 +29,15 @@ export const TEMAS: Array<{ nome: string; keyword: string }> = [
   { nome: "Churrasco", keyword: "kit churrasco" },
 ];
 
-/** Escolhe o tema do dia por rotação determinística (data de Brasília). */
-export function temaDoDia(): { nome: string; keyword: string } {
+/**
+ * Escolhe o tema por rotação determinística (data de Brasília). offset separa os
+ * posts do mesmo dia: com 2 posts/dia, slot 0 e slot 1 pegam temas diferentes
+ * (avança 2 por dia, cobre todos os temas ao longo dos dias).
+ */
+export function temaDoDia(offset = 0): { nome: string; keyword: string } {
   const diaBRT = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   const diasDesdeEpoch = Math.floor(new Date(`${diaBRT}T00:00:00Z`).getTime() / (24 * 60 * 60 * 1000));
-  return TEMAS[diasDesdeEpoch % TEMAS.length];
+  return TEMAS[(diasDesdeEpoch * 2 + offset) % TEMAS.length];
 }
 
 /**
@@ -45,16 +49,17 @@ export async function rodarLoopDiario(
   supabase: SupabaseClient,
   n = 8,
   keyword?: string,
+  offset = 0,
 ): Promise<{ tema: string; keyword: string; importados: number; carrosselId: number; faxina: { removidos: number; promovidos: number } }> {
   const appId = process.env.SHOPEE_APP_ID;
   const secret = process.env.SHOPEE_SECRET;
   if (!appId || !secret) throw new Error("Shopee não configurada (SHOPEE_APP_ID/SECRET)");
 
-  // tema escolhido (do seletor) ou o do rodízio do dia
+  // tema escolhido (do seletor) ou o do rodízio (offset separa os 2 posts do dia)
   const kw = keyword?.trim();
   const tema = kw
     ? (TEMAS.find((t) => t.keyword === kw) ?? { nome: kw, keyword: kw })
-    : temaDoDia();
+    : temaDoDia(offset);
   const shopee = new ShopeeAffiliate({ appId, secret });
   const pg = await shopee.buscarOfertas({ keyword: tema.keyword, limit: 50 });
   if (!pg.nodes.length) throw new Error(`Shopee não retornou ofertas pra "${tema.keyword}"`);
