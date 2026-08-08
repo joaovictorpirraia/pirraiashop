@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes, classificarCategoria } from "@/lib/curadoria";
+import { gerarConteudo, salvarRascunho, type ProdutoParaConteudo } from "@/lib/conteudo";
 import { buscarItens } from "@/lib/mercadolivre";
 import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
@@ -890,4 +891,75 @@ export async function removerDaVitrine(formData: FormData) {
     await supabase.from("produtos").update({ status: "descartado" }).eq("id", produtoId);
   }
   revalidar();
+}
+
+/**
+ * Pausa/reativa um item da vitrine. Pausado sai da vitrine pública (a view filtra
+ * pausado=false) mas o link segue ativo, então continua no admin pra reativar.
+ * É pra "sem estoque / volta depois" — diferente do descarte, que tira de vez.
+ */
+export async function alternarPausa(formData: FormData) {
+  const linkId = Number(formData.get("linkId"));
+  const pausar = formData.get("pausar") === "true";
+  if (!linkId) return;
+  await supabaseAdmin().from("links").update({ pausado: pausar }).eq("id", linkId);
+  revalidar();
+}
+
+/**
+ * Gera (ou reusa) a legenda + hashtags de um produto pro feed do Instagram, pro
+ * botão "Copiar legenda" do card. Reusa um post existente do canal feed se houver
+ * (economiza chamada); senão gera com a IA e salva como rascunho (fica em
+ * /admin/conteudo também). Chamada por um client component, devolve o texto.
+ */
+export async function gerarLegendaProduto(
+  produtoId: number,
+): Promise<{ ok: true; legenda: string; hashtags: string[] } | { ok: false; erro: string }> {
+  if (!produtoId) return { ok: false, erro: "produto inválido" };
+  const supabase = supabaseAdmin();
+
+  // já existe um post do feed pra esse produto? reusa a legenda/hashtags
+  const { data: existente } = await supabase
+    .from("posts")
+    .select("legenda, hashtags")
+    .eq("produto_id", produtoId)
+    .eq("canal", "instagram_feed")
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existente?.legenda) {
+    return {
+      ok: true,
+      legenda: existente.legenda as string,
+      hashtags: (existente.hashtags as string[]) ?? [],
+    };
+  }
+
+  const { data: p } = await supabase
+    .from("produtos")
+    .select("id, titulo, categoria, preco, preco_antigo, desconto_pct, loja_nome, angulo_ia, tags_ia")
+    .eq("id", produtoId)
+    .maybeSingle();
+  if (!p) return { ok: false, erro: "produto não encontrado" };
+
+  try {
+    const conteudo = await gerarConteudo(p as ProdutoParaConteudo, "instagram_feed");
+    if (!conteudo) return { ok: false, erro: "a IA não devolveu conteúdo" };
+    const { data: link } = await supabase
+      .from("links")
+      .select("id")
+      .eq("produto_id", produtoId)
+      .eq("ativo", true)
+      .maybeSingle();
+    await salvarRascunho(supabase, {
+      produtoId,
+      linkId: link?.id ?? null,
+      canal: "instagram_feed",
+      conteudo,
+    });
+    revalidar();
+    return { ok: true, legenda: conteudo.legenda, hashtags: conteudo.hashtags };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
 }
