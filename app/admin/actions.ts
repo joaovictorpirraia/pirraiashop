@@ -10,6 +10,7 @@ import { gerarConteudo, salvarRascunho, type ProdutoParaConteudo } from "@/lib/c
 import { publicarCarrossel as publicarCarrosselIG } from "@/lib/instagram";
 import { inserirRascunhoCarrossel, montarRascunhoAuto, curarProdutosParaVitrine } from "@/lib/carrossel";
 import { rodarLoopDiario } from "@/lib/loop";
+import { postarStoryAuto } from "@/lib/stories";
 import { buscarItens } from "@/lib/mercadolivre";
 import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
@@ -1204,6 +1205,31 @@ export async function removerDoCarrossel(formData: FormData) {
   await supabase.from("carrosseis").update({ produto_ids: novos }).eq("id", carrosselId);
   revalidar();
   redirect("/admin/instagram");
+}
+
+/** Posta 1 story agora (teste manual do fluxo automático). */
+export async function postarStoryAgora() {
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  try {
+    const res = await postarStoryAuto(supabase, 1);
+    await supabase.from("execucoes").insert({
+      job: "story_auto",
+      ok: res.erros === 0,
+      itens: res.postados,
+      detalhe: { origem: "admin", ...res },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino =
+      res.postados > 0
+        ? "/admin/instagram?ok=story"
+        : "/admin/instagram?erro=" + encodeURIComponent(String(res.detalhe[0]?.erro ?? "nada pra postar"));
+  } catch (e) {
+    destino = "/admin/instagram?erro=" + encodeURIComponent((e as Error).message);
+  }
+  revalidar();
+  redirect(destino);
 }
 
 /** Descarta um rascunho de carrossel (apaga o registro). */

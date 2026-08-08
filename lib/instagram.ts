@@ -61,6 +61,29 @@ export async function publicarFotoFeed(opts: {
   return { id: mediaId };
 }
 
+/**
+ * Publica uma foto no STORY (media_type=STORIES). Retorna o id da mídia. A API NÃO
+ * deixa colocar sticker de link clicável no story automático (bloqueio da Meta) —
+ * por isso a arte já traz "link na bio". image_url = JPEG público (o nosso Storage).
+ */
+export async function publicarStory(opts: { imageUrl: string }): Promise<{ id: string }> {
+  const igUserId = process.env.IG_USER_ID;
+  const token = process.env.IG_ACCESS_TOKEN;
+  if (!igUserId || !token) {
+    throw new Error("Instagram não configurado (IG_USER_ID / IG_ACCESS_TOKEN)");
+  }
+  const creationId = await graphPost(`${igUserId}/media`, {
+    image_url: opts.imageUrl,
+    media_type: "STORIES",
+    access_token: token,
+  });
+  const mediaId = await graphPost(`${igUserId}/media_publish`, {
+    creation_id: creationId,
+    access_token: token,
+  });
+  return { id: mediaId };
+}
+
 /** Espera um container ficar FINISHED antes de publicar (carrossel processa em passos). */
 async function esperarPronto(containerId: string, token: string): Promise<void> {
   for (let i = 0; i < 8; i++) {
