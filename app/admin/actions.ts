@@ -6,7 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes, classificarCategoria } from "@/lib/curadoria";
-import { gerarConteudo, salvarRascunho, type ProdutoParaConteudo } from "@/lib/conteudo";
+import { gerarConteudo, salvarRascunho, gerarLegendaCarrossel, type ProdutoParaConteudo } from "@/lib/conteudo";
+import { publicarCarrossel as publicarCarrosselIG } from "@/lib/instagram";
 import { buscarItens } from "@/lib/mercadolivre";
 import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
@@ -962,4 +963,111 @@ export async function gerarLegendaProduto(
   } catch (e) {
     return { ok: false, erro: (e as Error).message };
   }
+}
+
+/**
+ * Monta um rascunho de carrossel "achados do dia": recebe os produtos marcados
+ * (2 a 10), gera a legenda + hashtags com a IA e grava em `carrosseis` como
+ * rascunho. O dono revisa e publica depois. Volta pro /admin/instagram.
+ */
+export async function montarCarrossel(formData: FormData) {
+  const ids = formData
+    .getAll("produtoIds")
+    .map((v) => Number(v))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  if (ids.length < 2) redirect("/admin/instagram?erro=" + encodeURIComponent("marca de 2 a 10 produtos"));
+  if (ids.length > 10) redirect("/admin/instagram?erro=" + encodeURIComponent("máximo de 10 produtos por carrossel"));
+
+  const supabase = supabaseAdmin();
+  try {
+    const { data: prods } = await supabase
+      .from("produtos")
+      .select("id, titulo, preco, desconto_pct")
+      .in("id", ids);
+    // preserva a ordem que o dono marcou
+    const ordenados = ids
+      .map((id) => (prods ?? []).find((p) => p.id === id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p));
+    if (ordenados.length < 2) throw new Error("produtos não encontrados");
+
+    const { legenda, hashtags } = await gerarLegendaCarrossel(
+      ordenados.map((p) => ({ titulo: p.titulo, preco: p.preco, desconto_pct: p.desconto_pct })),
+    );
+    const legendaFinal = hashtags.length
+      ? `${legenda}\n\n${hashtags.map((h) => `#${h}`).join(" ")}`
+      : legenda;
+
+    const { error } = await supabase.from("carrosseis").insert({
+      produto_ids: ids,
+      legenda: legendaFinal,
+      status: "rascunho",
+    });
+    if (error) throw new Error(error.message);
+  } catch (e) {
+    redirect("/admin/instagram?erro=" + encodeURIComponent((e as Error).message));
+  }
+
+  revalidar();
+  redirect("/admin/instagram?ok=montado");
+}
+
+/**
+ * Publica um rascunho de carrossel no Instagram. Gera (aquece) os criativos de
+ * cada produto no Storage, monta as URLs JPEG diretas e chama a Graph API. Usa a
+ * legenda (possivelmente editada) do formulário. Marca publicado/erro no registro.
+ */
+export async function publicarCarrossel(formData: FormData) {
+  const id = Number(formData.get("carrosselId"));
+  const legendaEditada = String(formData.get("legenda") ?? "").trim();
+  if (!id) redirect("/admin/instagram?erro=" + encodeURIComponent("carrossel inválido"));
+
+  const supabase = supabaseAdmin();
+  try {
+    const { data: c } = await supabase
+      .from("carrosseis")
+      .select("id, produto_ids, legenda, status")
+      .eq("id", id)
+      .maybeSingle();
+    if (!c) throw new Error("carrossel não encontrado");
+    if (c.status === "publicado") throw new Error("esse carrossel já foi publicado");
+
+    const ids = (c.produto_ids as number[]) ?? [];
+    if (ids.length < 2) throw new Error("carrossel precisa de 2 a 10 produtos");
+
+    const base = process.env.NEXT_PUBLIC_SITE_URL || "https://pirraiashop.com.br";
+    const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supaUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL ausente no servidor");
+
+    // aquece os criativos (gera + guarda no Storage) e monta as URLs JPEG diretas
+    const imageUrls: string[] = [];
+    for (const pid of ids) {
+      await fetch(`${base}/api/criativo/${pid}`, { redirect: "manual", cache: "no-store" }).catch(() => {});
+      imageUrls.push(`${supaUrl}/storage/v1/object/public/criativos/${pid}.jpg`);
+    }
+
+    const caption = legendaEditada || (c.legenda as string) || "";
+    const { id: mediaId } = await publicarCarrosselIG({ imageUrls, caption });
+
+    await supabase
+      .from("carrosseis")
+      .update({ status: "publicado", ig_media_id: mediaId, erro: null, publicado_em: new Date().toISOString() })
+      .eq("id", id);
+  } catch (e) {
+    const msg = (e as Error).message;
+    await supabase.from("carrosseis").update({ status: "erro", erro: msg }).eq("id", id);
+    redirect("/admin/instagram?erro=" + encodeURIComponent(msg));
+  }
+
+  revalidar();
+  redirect("/admin/instagram?ok=publicado");
+}
+
+/** Descarta um rascunho de carrossel (apaga o registro). */
+export async function descartarCarrossel(formData: FormData) {
+  const id = Number(formData.get("carrosselId"));
+  if (!id) return;
+  await supabaseAdmin().from("carrosseis").delete().eq("id", id);
+  revalidar();
+  redirect("/admin/instagram");
 }
