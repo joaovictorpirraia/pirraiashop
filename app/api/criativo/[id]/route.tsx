@@ -10,14 +10,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Criativo de post do Instagram: 1080x1350 (4:5, o que ocupa mais tela no feed).
- * Foto do produto em cima, painel com preço/desconto embaixo — mesma linguagem do
- * banner do WhatsApp (que o dono aprovou).
+ * Criativo de post do Instagram (slide de produto): 1080x1350 (4:5). Foto do produto
+ * em TELA CHEIA + nome e preço sobrepostos (scrim escuro pro texto pop) + marca
+ * d'água @pirraiashop (anti-repost) — no estilo das contas de achadinho.
  *
- * Gera JPEG em JS puro (next/og PNG → pngjs+jpeg-js), guarda no bucket "criativos"
- * e redireciona pro CDN — a mesma solução do banner, sem `sharp`/webp. O Instagram
- * Content Publishing busca essa URL pública (exige JPEG). Regenera a cada chamada
- * (preço pode mudar); é chamado poucas vezes (montar/publicar carrossel).
+ * Gera JPEG em JS puro (next/og PNG → pngjs+jpeg-js), guarda no bucket "criativos" e
+ * redireciona pro CDN. O Instagram Content Publishing busca essa URL pública.
  */
 const FONT_DIR = join(process.cwd(), "app", "api", "og");
 const fonteRegular = readFileSync(join(FONT_DIR, "OpenSans-Regular.ttf"));
@@ -54,105 +52,48 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const antigo = p.preco_antigo != null ? Number(p.preco_antigo) : null;
   const temDesc = p.desconto_pct != null && Number(p.desconto_pct) > 0;
   const tituloBruto = String(p.titulo);
-  const titulo = tituloBruto.length > 62 ? `${tituloBruto.slice(0, 62).trimEnd()}…` : tituloBruto;
+  const titulo = tituloBruto.length > 52 ? `${tituloBruto.slice(0, 52).trimEnd()}…` : tituloBruto;
+  const marca = "pirraiashop   •   pirraiashop   •   pirraiashop   •   pirraiashop   •   pirraiashop";
 
   const resp = new ImageResponse(
     (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          height: "100%",
-          background: "#faf6f0",
-          fontFamily: "Open Sans",
-        }}
-      >
-        <div style={{ display: "flex", position: "relative" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={img} width={1080} height={790} style={{ objectFit: "cover" }} alt="" />
-          {/* selo ACHADINHO no canto da foto */}
-          <div
-            style={{
-              display: "flex",
-              position: "absolute",
-              top: 34,
-              left: 34,
-              background: "#e11d74",
-              color: "#fff",
-              fontSize: 32,
-              fontWeight: 900,
-              letterSpacing: 2,
-              padding: "12px 28px",
-              borderRadius: 999,
-            }}
-          >
-            ACHADINHO
-          </div>
+      <div style={{ display: "flex", position: "relative", width: "100%", height: "100%", background: "#2b2320", fontFamily: "Open Sans" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={img} width={1080} height={1350} style={{ position: "absolute", top: 0, left: 0, objectFit: "cover" }} alt="" />
+
+        {/* scrim topo (pro nome) e base (pro preço) */}
+        <div style={{ display: "flex", position: "absolute", top: 0, left: 0, width: 1080, height: 440, background: "linear-gradient(180deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0) 100%)" }} />
+        <div style={{ display: "flex", position: "absolute", top: 850, left: 0, width: 1080, height: 500, background: "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.78) 100%)" }} />
+
+        {/* marca d'água repetida no topo */}
+        <div style={{ display: "flex", position: "absolute", top: 26, left: 0, width: 1080, justifyContent: "center", overflow: "hidden", fontSize: 22, fontWeight: 700, letterSpacing: 2, color: "rgba(255,255,255,0.32)" }}>
+          {marca}
         </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            flex: 1,
-            padding: "44px 56px 52px",
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", fontSize: 26, fontWeight: 700, color: "#a89b90" }}>
-              pirraiashop<span style={{ color: "#e11d74" }}>.</span>com.br
-            </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 44,
-                fontWeight: 800,
-                color: "#2b2320",
-                marginTop: 14,
-                lineHeight: 1.15,
-              }}
-            >
-              {titulo}
-            </div>
+
+        {/* conteúdo */}
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", position: "absolute", top: 0, left: 0, width: 1080, height: 1350, padding: "92px 58px 64px" }}>
+          <div style={{ display: "flex", fontSize: 48, fontWeight: 800, color: "#fff", lineHeight: 1.14, maxWidth: 780 }}>
+            {titulo}
           </div>
 
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
               {antigo && antigo > preco && (
-                <div
-                  style={{
-                    display: "flex",
-                    fontSize: 32,
-                    color: "#a89b90",
-                    textDecoration: "line-through",
-                    marginRight: 20,
-                  }}
-                >
+                <div style={{ display: "flex", fontSize: 32, color: "rgba(255,255,255,0.75)", textDecoration: "line-through", marginRight: 20 }}>
                   {brl(antigo)}
                 </div>
               )}
               {temDesc && (
-                <div
-                  style={{
-                    display: "flex",
-                    fontSize: 28,
-                    fontWeight: 800,
-                    color: "#fff",
-                    background: "#e11d74",
-                    padding: "8px 22px",
-                    borderRadius: 999,
-                  }}
-                >
+                <div style={{ display: "flex", fontSize: 28, fontWeight: 800, color: "#fff", background: "#e11d74", padding: "8px 22px", borderRadius: 999 }}>
                   -{p.desconto_pct}% OFF
                 </div>
               )}
             </div>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", fontSize: 104, fontWeight: 900, color: "#2b2320", lineHeight: 1 }}>
+              <div style={{ display: "flex", fontSize: 108, fontWeight: 900, color: "#fff", lineHeight: 1 }}>
                 {brl(preco)}
               </div>
-              <div style={{ display: "flex", fontSize: 30, fontWeight: 800, color: "#e11d74", paddingBottom: 12 }}>
+              <div style={{ display: "flex", fontSize: 30, fontWeight: 800, color: "#ff8fc4", paddingBottom: 14 }}>
                 link na bio →
               </div>
             </div>
@@ -166,20 +107,14 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     ] },
   );
 
-  // PNG → JPEG leve, guarda no Storage e redireciona pro CDN (URL estável pro Instagram)
   const png = PNG.sync.read(Buffer.from(await resp.arrayBuffer()));
   const bytes = encodeJpeg({ data: png.data, width: png.width, height: png.height }, 80).data;
   const caminho = `${id}.jpg`;
   const publicUrl = supabase.storage.from("criativos").getPublicUrl(caminho).data.publicUrl;
   try {
-    await supabase.storage.from("criativos").upload(caminho, bytes, {
-      contentType: "image/jpeg",
-      upsert: true,
-    });
+    await supabase.storage.from("criativos").upload(caminho, bytes, { contentType: "image/jpeg", upsert: true });
     return NextResponse.redirect(publicUrl, 302);
   } catch {
-    return new NextResponse(bytes, {
-      headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=3600" },
-    });
+    return new NextResponse(bytes, { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=3600" } });
   }
 }
