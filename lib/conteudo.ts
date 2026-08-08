@@ -152,6 +152,77 @@ export async function gerarConteudo(
   return interpretarConteudo(resp.choices[0]?.message?.content ?? "");
 }
 
+const SCHEMA_CARROSSEL = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    legenda: { type: "string" },
+    hashtags: { type: "array", items: { type: "string" } },
+  },
+  required: ["legenda", "hashtags"],
+} as const;
+
+/**
+ * Gera a legenda + hashtags de um post CARROSSEL "achados do dia" (vários produtos
+ * num post só). Diferente do gerarConteudo (1 produto): a copy fala do conjunto e
+ * convida a arrastar pro lado + link na bio. Usada pelo montarCarrossel do admin.
+ */
+export async function gerarLegendaCarrossel(
+  produtos: Array<{ titulo: string; preco: number | string | null; desconto_pct: number | null }>,
+): Promise<{ legenda: string; hashtags: string[] }> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY ausente — geração de conteúdo não configurada");
+  }
+  const client = new OpenAI();
+  const system = `${BASE}
+Formato: post CARROSSEL de "achados do dia" no FEED do Instagram, com vários produtos num post só.
+- legenda: 2 a 5 linhas. 1ª linha um gancho que para o scroll (ex.: "separei os achadinhos de hoje"). Depois convida a ARRASTAR pro lado pra ver todos e ir no LINK DA BIO pra comprar. Não precisa listar preço de cada um.
+- hashtags: 6 a 12 minúsculas, sem "#", misturando nicho e alcance (achadinhos, achadosdatiktok, shopeebrasil, organizacao, etc).`;
+
+  const resp = await client.chat.completions.create({
+    model: MODELO,
+    max_completion_tokens: 2000,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "carrossel",
+        strict: true,
+        schema: SCHEMA_CARROSSEL as unknown as Record<string, unknown>,
+      },
+    },
+    messages: [
+      { role: "system", content: system },
+      {
+        role: "user",
+        content: JSON.stringify({
+          produtos: produtos.map((p) => ({
+            titulo: p.titulo,
+            preco: p.preco == null ? null : Number(p.preco),
+            desconto_pct: p.desconto_pct,
+          })),
+        }),
+      },
+    ],
+  });
+
+  let o: Record<string, unknown> = {};
+  try {
+    o = JSON.parse(resp.choices[0]?.message?.content ?? "");
+  } catch {
+    /* cai no erro abaixo */
+  }
+  const legenda = typeof o.legenda === "string" ? o.legenda.trim() : "";
+  const hashtags = Array.isArray(o.hashtags)
+    ? o.hashtags
+        .filter((h): h is string => typeof h === "string")
+        .map((h) => h.trim().replace(/^#+/, "").toLowerCase())
+        .filter(Boolean)
+        .slice(0, 15)
+    : [];
+  if (!legenda) throw new Error("a IA não devolveu legenda");
+  return { legenda, hashtags };
+}
+
 /**
  * Gera rascunhos pros produtos curados que ainda não têm rascunho (teto de 10
  * por rodada). Reusada pela rota /api/gerar-conteudo e pelo botão do admin.

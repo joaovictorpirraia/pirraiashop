@@ -60,3 +60,63 @@ export async function publicarFotoFeed(opts: {
 
   return { id: mediaId };
 }
+
+/** Espera um container ficar FINISHED antes de publicar (carrossel processa em passos). */
+async function esperarPronto(containerId: string, token: string): Promise<void> {
+  for (let i = 0; i < 8; i++) {
+    const resp = await fetch(
+      `${GRAPH}/${containerId}?fields=status_code&access_token=${encodeURIComponent(token)}`,
+    );
+    const json = (await resp.json().catch(() => ({}))) as { status_code?: string };
+    if (json.status_code === "FINISHED") return;
+    if (json.status_code === "ERROR") throw new Error("Instagram: container do carrossel deu ERROR");
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  // segue e tenta publicar; se não estiver pronto, o media_publish devolve o erro
+}
+
+/**
+ * Publica um CARROSSEL no feed (2 a 10 imagens). Graph API em 3 passos:
+ * 1. um container por imagem (is_carousel_item); 2. um container CAROUSEL com os
+ * filhos + legenda; 3. publica (após o container ficar pronto). Retorna o id da mídia.
+ */
+export async function publicarCarrossel(opts: {
+  imageUrls: string[];
+  caption: string;
+}): Promise<{ id: string }> {
+  const igUserId = process.env.IG_USER_ID;
+  const token = process.env.IG_ACCESS_TOKEN;
+  if (!igUserId || !token) {
+    throw new Error("Instagram não configurado (IG_USER_ID / IG_ACCESS_TOKEN)");
+  }
+  if (opts.imageUrls.length < 2 || opts.imageUrls.length > 10) {
+    throw new Error("carrossel precisa de 2 a 10 imagens");
+  }
+
+  // 1. container por imagem
+  const childIds: string[] = [];
+  for (const url of opts.imageUrls) {
+    const cid = await graphPost(`${igUserId}/media`, {
+      image_url: url,
+      is_carousel_item: "true",
+      access_token: token,
+    });
+    childIds.push(cid);
+  }
+
+  // 2. container do carrossel
+  const carouselId = await graphPost(`${igUserId}/media`, {
+    media_type: "CAROUSEL",
+    children: childIds.join(","),
+    caption: opts.caption,
+    access_token: token,
+  });
+
+  // 3. espera ficar pronto e publica
+  await esperarPronto(carouselId, token);
+  const mediaId = await graphPost(`${igUserId}/media_publish`, {
+    creation_id: carouselId,
+    access_token: token,
+  });
+  return { id: mediaId };
+}
