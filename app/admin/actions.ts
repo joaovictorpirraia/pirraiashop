@@ -976,8 +976,8 @@ export async function montarCarrossel(formData: FormData) {
     .map((v) => Number(v))
     .filter((n) => Number.isFinite(n) && n > 0);
 
-  if (ids.length < 2) redirect("/admin/instagram?erro=" + encodeURIComponent("marca de 2 a 10 produtos"));
-  if (ids.length > 10) redirect("/admin/instagram?erro=" + encodeURIComponent("máximo de 10 produtos por carrossel"));
+  if (ids.length < 2) redirect("/admin/instagram?erro=" + encodeURIComponent("marca de 2 a 9 produtos"));
+  if (ids.length > 9) redirect("/admin/instagram?erro=" + encodeURIComponent("máximo de 9 produtos (a capa é o 1º slide, total 10)"));
 
   const supabase = supabaseAdmin();
   try {
@@ -991,7 +991,7 @@ export async function montarCarrossel(formData: FormData) {
       .filter((p): p is NonNullable<typeof p> => Boolean(p));
     if (ordenados.length < 2) throw new Error("produtos não encontrados");
 
-    const { legenda, hashtags } = await gerarLegendaCarrossel(
+    const { gancho, legenda, hashtags } = await gerarLegendaCarrossel(
       ordenados.map((p) => ({ titulo: p.titulo, preco: p.preco, desconto_pct: p.desconto_pct })),
     );
     const legendaFinal = hashtags.length
@@ -1000,6 +1000,7 @@ export async function montarCarrossel(formData: FormData) {
 
     const { error } = await supabase.from("carrosseis").insert({
       produto_ids: ids,
+      gancho,
       legenda: legendaFinal,
       status: "rascunho",
     });
@@ -1020,33 +1021,40 @@ export async function montarCarrossel(formData: FormData) {
 export async function publicarCarrossel(formData: FormData) {
   const id = Number(formData.get("carrosselId"));
   const legendaEditada = String(formData.get("legenda") ?? "").trim();
+  const ganchoEditado = String(formData.get("gancho") ?? "").trim();
   if (!id) redirect("/admin/instagram?erro=" + encodeURIComponent("carrossel inválido"));
 
   const supabase = supabaseAdmin();
   try {
     const { data: c } = await supabase
       .from("carrosseis")
-      .select("id, produto_ids, legenda, status")
+      .select("id, produto_ids, legenda, gancho, status")
       .eq("id", id)
       .maybeSingle();
     if (!c) throw new Error("carrossel não encontrado");
     if (c.status === "publicado") throw new Error("esse carrossel já foi publicado");
 
     const ids = (c.produto_ids as number[]) ?? [];
-    if (ids.length < 2) throw new Error("carrossel precisa de 2 a 10 produtos");
+    if (ids.length < 2) throw new Error("carrossel precisa de 2 a 9 produtos");
 
     const base = process.env.NEXT_PUBLIC_SITE_URL || "https://pirraiashop.com.br";
     const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!supaUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL ausente no servidor");
 
-    // aquece os criativos (gera + guarda no Storage) e monta as URLs JPEG diretas
+    // aplica gancho/legenda editados ANTES de aquecer a capa (a capa lê o gancho do banco)
+    const gancho = ganchoEditado || (c.gancho as string) || "";
+    const caption = legendaEditada || (c.legenda as string) || "";
+    await supabase.from("carrosseis").update({ gancho, legenda: caption }).eq("id", id);
+
+    // 1º slide = CAPA (gancho + foto de fundo); depois os criativos dos produtos
     const imageUrls: string[] = [];
+    await fetch(`${base}/api/capa/${id}`, { redirect: "manual", cache: "no-store" }).catch(() => {});
+    imageUrls.push(`${supaUrl}/storage/v1/object/public/criativos/capa-${id}.jpg`);
     for (const pid of ids) {
       await fetch(`${base}/api/criativo/${pid}`, { redirect: "manual", cache: "no-store" }).catch(() => {});
       imageUrls.push(`${supaUrl}/storage/v1/object/public/criativos/${pid}.jpg`);
     }
 
-    const caption = legendaEditada || (c.legenda as string) || "";
     const { id: mediaId } = await publicarCarrosselIG({ imageUrls, caption });
 
     await supabase

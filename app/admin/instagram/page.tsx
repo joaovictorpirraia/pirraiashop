@@ -17,6 +17,7 @@ interface ProdutoVitrine {
 interface Carrossel {
   id: number;
   produto_ids: number[];
+  gancho: string;
   legenda: string;
   status: string;
   ig_media_id: string | null;
@@ -49,7 +50,7 @@ export default async function InstagramAdmin({
   // carrosséis (rascunhos primeiro, depois publicados/erro recentes)
   const { data: carrosseisRaw } = await supabase
     .from("carrosseis")
-    .select("id, produto_ids, legenda, status, ig_media_id, erro")
+    .select("id, produto_ids, gancho, legenda, status, ig_media_id, erro")
     .order("criado_em", { ascending: false })
     .limit(20);
   const carrosseis = (carrosseisRaw ?? []) as Carrossel[];
@@ -105,7 +106,8 @@ export default async function InstagramAdmin({
         <section className="rounded-2xl bg-white p-5 shadow-carta">
           <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">Montar carrossel</h2>
           <p className="mt-1 text-xs text-fumo">
-            Marca de 2 a 10 produtos. A IA escreve a legenda “achados do dia” e monta um rascunho pra você revisar.
+            Marca de 2 a 9 produtos. A IA escreve o gancho da capa + a legenda “achados do dia” e monta um
+            rascunho pra você revisar. A capa (foto + gancho) entra como 1º slide automaticamente.
           </p>
           <form action={montarCarrossel} className="mt-4">
             <div className="grid max-h-[420px] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 lg:grid-cols-4">
@@ -144,20 +146,33 @@ export default async function InstagramAdmin({
             <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">Rascunhos</h2>
             {rascunhos.map((c) => (
               <div key={c.id} className="rounded-2xl bg-white p-5 shadow-carta">
-                <div className="flex flex-wrap gap-2">
-                  {(c.produto_ids ?? []).map((pid) => {
-                    const p = mapaProd.get(pid);
-                    return (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={pid}
-                        src={p?.imagem_url ?? ""}
-                        alt={p?.titulo ?? ""}
-                        title={p?.titulo ?? ""}
-                        className="h-20 w-20 rounded-lg object-cover"
-                      />
-                    );
-                  })}
+                <div className="flex flex-wrap items-start gap-3">
+                  {/* prévia da CAPA (1º slide) */}
+                  <div className="flex flex-col items-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/capa/${c.id}`}
+                      alt="capa do carrossel"
+                      className="h-[150px] w-[120px] rounded-lg object-cover ring-2 ring-pirraia"
+                    />
+                    <span className="mt-1 text-[10px] font-bold uppercase text-pirraia">capa</span>
+                  </div>
+                  {/* thumbs dos produtos */}
+                  <div className="flex flex-wrap gap-2">
+                    {(c.produto_ids ?? []).map((pid) => {
+                      const p = mapaProd.get(pid);
+                      return (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={pid}
+                          src={p?.imagem_url ?? ""}
+                          alt={p?.titulo ?? ""}
+                          title={p?.titulo ?? ""}
+                          className="h-[120px] w-[120px] rounded-lg object-cover"
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {c.status === "erro" && c.erro && (
@@ -169,6 +184,14 @@ export default async function InstagramAdmin({
                 <form action={publicarCarrossel} className="mt-3">
                   <input type="hidden" name="carrosselId" value={c.id} />
                   <label className="text-xs font-medium text-fumo">
+                    Gancho da capa (edita à vontade — a capa usa este texto)
+                    <input
+                      name="gancho"
+                      defaultValue={c.gancho}
+                      className="mt-1 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-tinta outline-none focus:border-pirraia"
+                    />
+                  </label>
+                  <label className="mt-3 block text-xs font-medium text-fumo">
                     Legenda (dá pra editar antes de publicar)
                     <textarea
                       name="legenda"
