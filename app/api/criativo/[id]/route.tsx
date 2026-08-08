@@ -68,8 +68,28 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           fontFamily: "Open Sans",
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={img} width={1080} height={790} style={{ objectFit: "cover" }} alt="" />
+        <div style={{ display: "flex", position: "relative" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={img} width={1080} height={790} style={{ objectFit: "cover" }} alt="" />
+          {/* selo ACHADINHO no canto da foto */}
+          <div
+            style={{
+              display: "flex",
+              position: "absolute",
+              top: 34,
+              left: 34,
+              background: "#e11d74",
+              color: "#fff",
+              fontSize: 32,
+              fontWeight: 900,
+              letterSpacing: 2,
+              padding: "12px 28px",
+              borderRadius: 999,
+            }}
+          >
+            ACHADINHO
+          </div>
+        </div>
         <div
           style={{
             display: "flex",
