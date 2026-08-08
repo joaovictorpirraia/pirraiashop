@@ -190,12 +190,20 @@ export async function categorizarFila() {
   const supabase = supabaseAdmin();
   const inicio = Date.now();
   try {
-    const res = await categorizarProdutos(supabase);
+    // processa a fila inteira em lotes (categorizarProdutos faz até 80 por vez)
+    let classificados = 0;
+    const novas = new Set<string>();
+    for (let i = 0; i < 8; i++) {
+      const res = await categorizarProdutos(supabase);
+      classificados += res.classificados;
+      res.novas.forEach((n) => novas.add(n));
+      if (res.classificados === 0) break;
+    }
     await supabase.from("execucoes").insert({
       job: "categorizar_fila",
       ok: true,
-      itens: res.classificados,
-      detalhe: res,
+      itens: classificados,
+      detalhe: { classificados, novas: [...novas] },
       duracao_ms: Date.now() - inicio,
     });
   } catch (e) {

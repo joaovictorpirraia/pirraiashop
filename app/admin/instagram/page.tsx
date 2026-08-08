@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { instagramConfigurado } from "@/lib/instagram";
 import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel } from "../actions";
+import { BotaoSubmit } from "@/components/BotaoSubmit";
 
 export const dynamic = "force-dynamic";
 
@@ -117,23 +118,23 @@ export default async function InstagramAdmin({
             <div className="flex flex-wrap items-center gap-2">
               {/* loop do dia: importa Shopee do tema da vez e monta o rascunho */}
               <form action={rodarLoopDoDia}>
-                <button
-                  type="submit"
+                <BotaoSubmit
+                  pendingLabel="Importando e montando…"
                   title="Importa produtos Shopee do tema do dia (rodízio), monta o rascunho com os melhores e faz a faxina dos expirados."
                   className="whitespace-nowrap rounded-full bg-pirraia px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-pirraia-dark"
                 >
                   Rodar loop do dia
-                </button>
+                </BotaoSubmit>
               </form>
               {/* automático: a IA escolhe da vitrine já curada */}
               <form action={montarCarrosselAuto}>
-                <button
-                  type="submit"
+                <BotaoSubmit
+                  pendingLabel="Montando…"
                   title="A IA escolhe os melhores produtos JÁ na vitrine (temático, sem repetir os postados) e monta o rascunho."
                   className="whitespace-nowrap rounded-full bg-tinta px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-pirraia"
                 >
                   Montar da vitrine
-                </button>
+                </BotaoSubmit>
               </form>
             </div>
           </div>
@@ -159,12 +160,12 @@ export default async function InstagramAdmin({
                 </label>
               ))}
             </div>
-            <button
-              type="submit"
+            <BotaoSubmit
+              pendingLabel="Montando o carrossel…"
               className="mt-4 rounded-lg bg-pirraia px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-pirraia-dark"
             >
               Montar carrossel
-            </button>
+            </BotaoSubmit>
           </form>
         </section>
 
@@ -229,22 +230,26 @@ export default async function InstagramAdmin({
                     />
                   </label>
                   <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="submit"
+                    <BotaoSubmit
                       disabled={!igOn}
+                      pendingLabel="Publicando no Instagram…"
                       title={igOn ? "Publica o carrossel no feed do @pirraiashop" : "Configure o Instagram no servidor primeiro"}
                       className="rounded-lg bg-[#C13584] px-5 py-2 text-sm font-bold text-white transition hover:brightness-95 disabled:opacity-40"
                     >
                       Publicar no Instagram
-                    </button>
+                    </BotaoSubmit>
                   </div>
                 </form>
 
                 <form action={descartarCarrossel} className="mt-2">
                   <input type="hidden" name="carrosselId" value={c.id} />
-                  <button type="submit" className="text-xs font-semibold text-fumo hover:text-red-600">
+                  <BotaoSubmit
+                    spinner={false}
+                    pendingLabel="Descartando…"
+                    className="text-xs font-semibold text-fumo hover:text-red-600"
+                  >
                     Descartar rascunho
-                  </button>
+                  </BotaoSubmit>
                 </form>
               </div>
             ))}

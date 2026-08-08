@@ -20,6 +20,7 @@ import {
 } from "./actions";
 import { CompartilharAdmin } from "@/components/CompartilharAdmin";
 import { CopiarLegenda } from "@/components/CopiarLegenda";
+import { BotaoSubmit } from "@/components/BotaoSubmit";
 
 export const dynamic = "force-dynamic";
 
@@ -234,13 +235,13 @@ export default async function Admin({
               placeholder="cola o link do produto (Shopee ou AliExpress)…"
               className="flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia"
             />
-            <button
-              type="submit"
+            <BotaoSubmit
+              pendingLabel="Importando…"
               className="rounded-lg bg-[#EE4D2D] px-5 py-2 text-sm font-bold text-white transition hover:brightness-95"
               title="Puxa dados + link de afiliado + categoria (IA) e joga na vitrine já curado."
             >
               Importar
-            </button>
+            </BotaoSubmit>
           </form>
           <p className="mt-2 text-xs text-fumo">
             Mercado Livre não entra por link (eles bloqueiam o servidor) — use o bookmarklet
@@ -266,13 +267,13 @@ export default async function Admin({
               vitrine/fila (do seed inicial). Tire eles antes de mandar tráfego.
             </div>
             <form action={limparExemplos}>
-              <button
-                type="submit"
+              <BotaoSubmit
+                pendingLabel="Limpando…"
                 className="w-full whitespace-nowrap rounded-lg bg-tinta px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-pirraia sm:w-auto"
                 title="Descarta os produtos de exemplo (some da vitrine e da fila). É reversível — não apaga do banco."
               >
                 Limpar exemplos
-              </button>
+              </BotaoSubmit>
             </form>
           </div>
         )}
@@ -338,13 +339,13 @@ export default async function Admin({
                   placeholder="buscar na Shopee…"
                   className="w-40 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
                 />
-                <button
-                  type="submit"
+                <BotaoSubmit
+                  pendingLabel="Importando…"
                   className="rounded-full bg-[#EE4D2D] px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-95"
                   title="Busca ofertas na Shopee (Open API) e joga na fila, já com o link de afiliado."
                 >
                   Importar Shopee
-                </button>
+                </BotaoSubmit>
               </form>
               {/* Importar da AliExpress por palavra-chave (API de afiliado) */}
               <form action={importarAliexpress} className="flex items-center gap-1.5">
@@ -354,13 +355,13 @@ export default async function Admin({
                   placeholder="buscar na AliExpress…"
                   className="w-40 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
                 />
-                <button
-                  type="submit"
+                <BotaoSubmit
+                  pendingLabel="Importando…"
                   className="rounded-full bg-[#E62E04] px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-95"
                   title="Busca produtos na AliExpress (API de afiliado) e joga na fila, já com o link de afiliado."
                 >
                   Importar AliExpress
-                </button>
+                </BotaoSubmit>
               </form>
               {/* Importar do Mercado Livre por palavra-chave */}
               <form action={importarML} className="flex items-center gap-1.5">
@@ -370,23 +371,23 @@ export default async function Admin({
                   placeholder="buscar no Mercado Livre…"
                   className="w-40 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
                 />
-                <button
-                  type="submit"
+                <BotaoSubmit
+                  pendingLabel="Importando…"
                   className="rounded-full bg-tinta px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-pirraia"
                   title="Busca itens no Mercado Livre e joga na fila. O link de afiliado você cola na hora de curar."
                 >
                   Importar ML
-                </button>
+                </BotaoSubmit>
               </form>
               {/* categoriza (IA) os produtos da fila sem categoria */}
               <form action={categorizarFila}>
-                <button
-                  type="submit"
+                <BotaoSubmit
+                  pendingLabel="Categorizando…"
                   className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
                   title="A IA classifica em lote os produtos da fila que estão sem categoria (cria categoria nova se precisar)."
                 >
                   Categorizar fila
-                </button>
+                </BotaoSubmit>
               </form>
             </div>
           </div>
@@ -406,12 +407,12 @@ export default async function Admin({
                     Cancelar
                   </a>
                   <form action={limparFila}>
-                    <button
-                      type="submit"
+                    <BotaoSubmit
+                      pendingLabel="Limpando…"
                       className="rounded-lg bg-red-600 px-4 py-1.5 text-sm font-bold text-white transition hover:brightness-95"
                     >
                       Confirmar limpeza
-                    </button>
+                    </BotaoSubmit>
                   </form>
                 </div>
               </div>
@@ -497,23 +498,23 @@ export default async function Admin({
             {nVitrine > 0 && (
               <div className="flex items-center gap-2">
                 <form action={pontuarVitrine}>
-                  <button
-                    type="submit"
+                  <BotaoSubmit
+                    pendingLabel="Pontuando…"
                     className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
                     title="A IA pontua os produtos da vitrine que ainda não têm score (ex.: os que você adicionou à mão)."
                   >
                     Pontuar com IA
-                  </button>
+                  </BotaoSubmit>
                 </form>
                 {nVitrine > 1 && (
                   <form action={reordenarPorPerformance}>
-                    <button
-                      type="submit"
+                    <BotaoSubmit
+                      pendingLabel="Reordenando…"
                       className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
                       title="Reordena por cliques + score da IA. O destaque continua no topo."
                     >
                       Reordenar por performance
-                    </button>
+                    </BotaoSubmit>
                   </form>
                 )}
               </div>
@@ -690,12 +691,12 @@ function FilaCard({ p, categorias }: { p: ProdutoNovo; categorias: string[] }) {
             className="mt-1 w-full rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-sm text-tinta outline-none focus:border-pirraia"
           />
         </label>
-        <button
-          type="submit"
+        <BotaoSubmit
+          pendingLabel="Curando…"
           className="rounded-lg bg-pirraia px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-pirraia-dark"
         >
           Curar
-        </button>
+        </BotaoSubmit>
       </form>
 
       <form action={descartarProduto} className="border-t border-black/5 px-4 py-2">
