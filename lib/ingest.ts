@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { type ProdutoOferta, paraProduto } from "./shopee";
 import { type ItemML, paraProdutoML } from "./mercadolivre";
 import { type ProdutoAli, paraProdutoAli } from "./aliexpress";
+import { categorizarProdutos } from "./curadoria";
 
 export interface ResultadoIngestao {
   recebidas: number;
@@ -47,6 +48,13 @@ async function upsertNormalizados(
       erros: linhas.length,
       detalhe: error.message,
     };
+  }
+
+  // classifica em lote os recém-importados (categoria via IA). Não trava o import.
+  try {
+    await categorizarProdutos(supabase);
+  } catch {
+    /* categoria é opcional */
   }
 
   return { recebidas: linhas.length, gravadas: data?.length ?? 0, erros: 0 };

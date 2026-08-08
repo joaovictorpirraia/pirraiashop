@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ShopeeAffiliate, paraProduto } from "./shopee";
 import { inserirRascunhoCarrossel, faxinaExpirados } from "./carrossel";
+import { categorizarProdutos } from "./curadoria";
 
 /** Temas do dia, em rodízio. keyword = o que busca na Shopee. */
 export const TEMAS: Array<{ nome: string; keyword: string }> = [
@@ -54,6 +55,13 @@ export async function rodarLoopDiario(
     .slice(0, n);
   const ids = ranked.map((r) => r.id as number);
   if (ids.length < 2) throw new Error("poucos produtos aproveitáveis no import");
+
+  // categoriza em lote os recém-importados (não trava o loop)
+  try {
+    await categorizarProdutos(supabase);
+  } catch {
+    /* categoria é opcional */
+  }
 
   const { data: prods } = await supabase
     .from("produtos")

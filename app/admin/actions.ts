@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
-import { pontuarPendentes, classificarCategoria } from "@/lib/curadoria";
+import { pontuarPendentes, classificarCategoria, categorizarProdutos } from "@/lib/curadoria";
 import { gerarConteudo, salvarRascunho, type ProdutoParaConteudo } from "@/lib/conteudo";
 import { publicarCarrossel as publicarCarrosselIG } from "@/lib/instagram";
 import { inserirRascunhoCarrossel, montarRascunhoAuto, curarProdutosParaVitrine } from "@/lib/carrossel";
@@ -180,6 +180,35 @@ export async function importarAliexpress(formData: FormData) {
 
   revalidar();
   redirect(destino);
+}
+
+/**
+ * Classifica em lote os produtos da fila que estão sem categoria (IA). Cria
+ * categorias novas quando nenhuma existente serve. Botão "Categorizar fila".
+ */
+export async function categorizarFila() {
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  try {
+    const res = await categorizarProdutos(supabase);
+    await supabase.from("execucoes").insert({
+      job: "categorizar_fila",
+      ok: true,
+      itens: res.classificados,
+      detalhe: res,
+      duracao_ms: Date.now() - inicio,
+    });
+  } catch (e) {
+    await supabase.from("execucoes").insert({
+      job: "categorizar_fila",
+      ok: false,
+      itens: 0,
+      detalhe: { erro: (e as Error).message },
+      duracao_ms: Date.now() - inicio,
+    });
+  }
+  revalidar();
+  redirect("/admin?ver=fila");
 }
 
 /** Reordena a vitrine por performance (cliques) + potencial (score_ia). */

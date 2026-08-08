@@ -64,6 +64,122 @@ export async function classificarCategoria(
   }
 }
 
+const semAcento = (s: string) =>
+  s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/**
+ * Classifica EM LOTE os produtos 'novo' sem categoria: 1 chamada pra IA (barato),
+ * mapeando cada um numa categoria AMPLA. Prefere as categorias já cadastradas; se
+ * nenhuma servir, CRIA uma nova (ampla) e cadastra em `categorias`. Depois seta a
+ * `categoria` em cada produto. No-op sem OPENAI_API_KEY. Não trava a importação.
+ */
+export async function categorizarProdutos(
+  supabase: SupabaseClient,
+  limite = 80,
+): Promise<{ classificados: number; novas: string[] }> {
+  if (!process.env.OPENAI_API_KEY) return { classificados: 0, novas: [] };
+
+  const { data: pend } = await supabase
+    .from("produtos")
+    .select("id, titulo")
+    .eq("status", "novo")
+    .is("categoria", null)
+    .limit(limite);
+  if (!pend || pend.length === 0) return { classificados: 0, novas: [] };
+
+  const { data: catsRaw } = await supabase.from("categorias").select("nome").order("ordem");
+  const existentes = (catsRaw ?? []).map((c) => c.nome as string);
+  const porNorm = new Map(existentes.map((n) => [semAcento(n), n]));
+
+  const client = new OpenAI();
+  let itens: Array<{ id: number; categoria: string }> = [];
+  try {
+    const resp = await client.chat.completions.create({
+      model: MODELO,
+      max_completion_tokens: 4000,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "categorias_lote",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              itens: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: { id: { type: "number" }, categoria: { type: "string" } },
+                  required: ["id", "categoria"],
+                },
+              },
+            },
+            required: ["itens"],
+          },
+        },
+      },
+      messages: [
+        {
+          role: "system",
+          content:
+            `Categorize cada produto de e-commerce em UMA categoria AMPLA em português (1-2 palavras). ` +
+            `Use PREFERENCIALMENTE uma destas já existentes: ${existentes.join(", ") || "(nenhuma ainda)"}. ` +
+            `Só crie categoria nova (ampla, não específica) se nenhuma existente servir. Responda a categoria de cada id.`,
+        },
+        { role: "user", content: JSON.stringify(pend.map((p) => ({ id: p.id, titulo: p.titulo }))) },
+      ],
+    });
+    itens = (JSON.parse(resp.choices[0]?.message?.content ?? "{}").itens ?? []) as typeof itens;
+  } catch {
+    return { classificados: 0, novas: [] };
+  }
+
+  const novasSet = new Set<string>();
+  const decisao = new Map<number, string>();
+  for (const it of itens) {
+    const raw = String(it.categoria || "").trim();
+    if (!raw || !it.id) continue;
+    const existente = porNorm.get(semAcento(raw));
+    let nome: string;
+    if (existente) {
+      nome = existente;
+    } else {
+      nome = raw.replace(/\s+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+      if (!porNorm.has(semAcento(nome))) {
+        novasSet.add(nome);
+        porNorm.set(semAcento(nome), nome);
+      } else {
+        nome = porNorm.get(semAcento(nome))!;
+      }
+    }
+    decisao.set(Number(it.id), nome);
+  }
+
+  const novas = [...novasSet];
+  if (novas.length) {
+    const { data: ult } = await supabase
+      .from("categorias")
+      .select("ordem")
+      .order("ordem", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    let ordem = (ult?.ordem ?? 0) + 1;
+    await supabase.from("categorias").upsert(
+      novas.map((nome) => ({ nome, ordem: ordem++ })),
+      { onConflict: "nome" },
+    );
+  }
+
+  let classificados = 0;
+  for (const [id, nome] of decisao) {
+    const { error } = await supabase.from("produtos").update({ categoria: nome }).eq("id", id);
+    if (!error) classificados++;
+  }
+  return { classificados, novas };
+}
+
 export interface ProdutoParaScore {
   id: number;
   titulo: string;
