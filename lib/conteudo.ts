@@ -186,7 +186,7 @@ Formato: post CARROSSEL de "achados do dia" no FEED do Instagram, com vários pr
   "ACHADINHOS QUE VÃO SALVAR SEU JOGO"
   "MINHAS COMPRAS QUE FORAM MELHOR DO QUE O ESPERADO"
 - tema_fundo: uma busca CURTA EM INGLÊS pra achar a foto LIFESTYLE de fundo da capa (aspiracional, sem produto), de acordo com o tema dos produtos. Ex.: "cozy modern living room", "bright scandinavian kitchen", "beach travel lifestyle", "clean skincare vanity", "minimal home office desk". Só o termo de busca, nada mais.
-- legenda: 2 a 5 linhas. 1ª linha um gancho que para o scroll. Depois convida a ARRASTAR pro lado pra ver todos. Termine com a CTA EXATA: "🔗 os links tão no link da bio — ou comenta QUERO que eu te mando no direct 📩". Não liste preço de cada um.
+- legenda: MAIS LONGA e envolvente, 5 a 9 linhas. 1ª linha um gancho que para o scroll. Depois desenvolve: por que esses achados valem a pena, pra quem serve, um toque de história/opinião (sem prometer o que o produto não faz). Convida a ARRASTAR pro lado pra ver todos. Termine com a CTA EXATA: "🔗 tá tudo no link da bio — é só entrar e pesquisar o nome do produto que você quer!". NÃO peça pra comentar nada. Não liste preço de cada um.
 - palavras: 15 a 25 palavras-chave curtas em pt-BR (SEO/alcance), sem "#", separáveis por vírgula. Misture o tema dos produtos + termos de alcance (ex.: achadinhos da shopee, produtos virais, shopee finds, viralizou no tiktok, compras inteligentes, favoritos da internet, promoções shopee).
 - hashtags: 6 a 12 minúsculas, sem "#", misturando nicho e alcance (achadinhos, achadosdatiktok, shopeebrasil, organizacao, etc).`;
 
