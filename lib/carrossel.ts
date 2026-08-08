@@ -91,12 +91,14 @@ export async function inserirRascunhoCarrossel(
   produtos: ProdutoCarrossel[],
 ): Promise<number> {
   if (produtos.length < 2) throw new Error("produtos insuficientes pra montar o carrossel");
-  const { gancho, tema_fundo, legenda, palavras, hashtags } = await gerarLegendaCarrossel(
+  const { gancho, tema_fundo, legenda, hashtags } = await gerarLegendaCarrossel(
     produtos.map((p) => ({ titulo: p.titulo, preco: p.preco, desconto_pct: p.desconto_pct })),
   );
+  // legenda LEVE enquanto a conta é nova: só legenda + poucas hashtags. Sem o
+  // paredão de palavras-chave (é o sinal mais "spam" pro robô da Meta). Dá pra
+  // voltar ao "modo cheio" quando a conta tiver histórico.
   const partes = [legenda];
-  if (hashtags.length) partes.push(hashtags.map((h) => `#${h}`).join(" "));
-  if (palavras.length) partes.push(palavras.join(", "));
+  if (hashtags.length) partes.push(hashtags.slice(0, 8).map((h) => `#${h}`).join(" "));
 
   const { data, error } = await supabase
     .from("carrosseis")

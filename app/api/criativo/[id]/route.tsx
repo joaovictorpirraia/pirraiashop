@@ -49,8 +49,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const img = jpegDe(p.imagem_url as string);
   const preco = Number(p.preco);
-  const antigo = p.preco_antigo != null ? Number(p.preco_antigo) : null;
-  const temDesc = p.desconto_pct != null && Number(p.desconto_pct) > 0;
   const tituloBruto = String(p.titulo);
   const titulo = tituloBruto.length > 52 ? `${tituloBruto.slice(0, 52).trimEnd()}…` : tituloBruto;
   const marca = "pirraiashop   •   pirraiashop   •   pirraiashop   •   pirraiashop   •   pirraiashop";
@@ -76,26 +74,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
             {titulo}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 6 }}>
-              {antigo && antigo > preco && (
-                <div style={{ display: "flex", fontSize: 32, color: "rgba(255,255,255,0.75)", textDecoration: "line-through", marginRight: 20 }}>
-                  {brl(antigo)}
-                </div>
-              )}
-              {temDesc && (
-                <div style={{ display: "flex", fontSize: 28, fontWeight: 800, color: "#fff", background: "#e11d74", padding: "8px 22px", borderRadius: 999 }}>
-                  -{p.desconto_pct}% OFF
-                </div>
-              )}
+          {/* só o preço, sem desconto/riscado (estilo do @caixadeachadinhos: mais limpo e honesto) */}
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", fontSize: 116, fontWeight: 900, color: "#fff", lineHeight: 1 }}>
+              {brl(preco)}
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", fontSize: 108, fontWeight: 900, color: "#fff", lineHeight: 1 }}>
-                {brl(preco)}
-              </div>
-              <div style={{ display: "flex", fontSize: 30, fontWeight: 800, color: "#ff8fc4", paddingBottom: 14 }}>
-                link na bio →
-              </div>
+            <div style={{ display: "flex", fontSize: 30, fontWeight: 800, color: "#ff8fc4", paddingBottom: 16 }}>
+              link na bio →
             </div>
           </div>
         </div>
