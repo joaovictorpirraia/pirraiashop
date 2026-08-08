@@ -10,6 +10,7 @@ import {
   removerDaVitrine,
   reordenarPorPerformance,
   pontuarVitrine,
+  categorizarFila,
   importarML,
   importarShopee,
   importarAliexpress,
@@ -375,6 +376,16 @@ export default async function Admin({
                   title="Busca itens no Mercado Livre e joga na fila. O link de afiliado você cola na hora de curar."
                 >
                   Importar ML
+                </button>
+              </form>
+              {/* categoriza (IA) os produtos da fila sem categoria */}
+              <form action={categorizarFila}>
+                <button
+                  type="submit"
+                  className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
+                  title="A IA classifica em lote os produtos da fila que estão sem categoria (cria categoria nova se precisar)."
+                >
+                  Categorizar fila
                 </button>
               </form>
             </div>
