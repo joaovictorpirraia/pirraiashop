@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { instagramConfigurado } from "@/lib/instagram";
-import { montarCarrossel, montarCarrosselAuto, publicarCarrossel, descartarCarrossel } from "../actions";
+import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ interface Carrossel {
 export default async function InstagramAdmin({
   searchParams,
 }: {
-  searchParams: { ok?: string; erro?: string };
+  searchParams: { ok?: string; erro?: string; tema?: string };
 }) {
   const supabase = supabaseAdmin();
   const igOn = instagramConfigurado();
@@ -87,7 +87,9 @@ export default async function InstagramAdmin({
           <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
             {searchParams.ok === "publicado"
               ? "Carrossel publicado no Instagram!"
-              : "Carrossel montado — revise e publique abaixo."}
+              : searchParams.tema
+                ? `Loop do dia rodou (tema: ${searchParams.tema}) — revise o rascunho e publique.`
+                : "Carrossel montado — revise e publique abaixo."}
           </p>
         )}
         {searchParams.erro && (
@@ -112,16 +114,28 @@ export default async function InstagramAdmin({
                 rascunho pra você revisar. A capa (foto + gancho) entra como 1º slide automaticamente.
               </p>
             </div>
-            {/* automático: a IA escolhe os produtos do dia sozinha */}
-            <form action={montarCarrosselAuto}>
-              <button
-                type="submit"
-                title="A IA escolhe os melhores produtos do dia (temático, sem repetir os já postados) e monta o rascunho sozinha."
-                className="whitespace-nowrap rounded-full bg-tinta px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-pirraia"
-              >
-                Montar automático
-              </button>
-            </form>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* loop do dia: importa Shopee do tema da vez e monta o rascunho */}
+              <form action={rodarLoopDoDia}>
+                <button
+                  type="submit"
+                  title="Importa produtos Shopee do tema do dia (rodízio), monta o rascunho com os melhores e faz a faxina dos expirados."
+                  className="whitespace-nowrap rounded-full bg-pirraia px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-pirraia-dark"
+                >
+                  Rodar loop do dia
+                </button>
+              </form>
+              {/* automático: a IA escolhe da vitrine já curada */}
+              <form action={montarCarrosselAuto}>
+                <button
+                  type="submit"
+                  title="A IA escolhe os melhores produtos JÁ na vitrine (temático, sem repetir os postados) e monta o rascunho."
+                  className="whitespace-nowrap rounded-full bg-tinta px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-pirraia"
+                >
+                  Montar da vitrine
+                </button>
+              </form>
+            </div>
           </div>
           <form action={montarCarrossel} className="mt-4">
             <div className="grid max-h-[420px] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 lg:grid-cols-4">

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { gerarLegendaCarrossel } from "./conteudo";
+import { slugify } from "./slug";
 
 /** Produto mínimo pra montar o carrossel (o resto é só pra ranquear/selecionar). */
 export interface ProdutoCarrossel {
@@ -123,4 +124,94 @@ export async function montarRascunhoAuto(
   }
   const id = await inserirRascunhoCarrossel(supabase, produtos);
   return { id, categoria, n: produtos.length };
+}
+
+/**
+ * Cura os produtos de um carrossel PRA VITRINE, com validade (default 15 dias).
+ * Só cria link pra quem ainda não tem um ativo (produto evergreen cadastrado à mão
+ * fica intocado). Chamado na PUBLICAÇÃO — assim o público só vê o que você aprovou,
+ * e o item some sozinho depois da validade. short_url = link de afiliado do produto.
+ */
+export async function curarProdutosParaVitrine(
+  supabase: SupabaseClient,
+  ids: number[],
+  diasValidade = 15,
+): Promise<void> {
+  if (!ids.length) return;
+  const expira = new Date(Date.now() + diasValidade * 24 * 60 * 60 * 1000).toISOString();
+  const { data: ult } = await supabase
+    .from("links")
+    .select("ordem")
+    .order("ordem", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  let ordem = (ult?.ordem ?? -1) + 1;
+
+  for (const pid of ids) {
+    const { data: existe } = await supabase
+      .from("links")
+      .select("id")
+      .eq("produto_id", pid)
+      .eq("ativo", true)
+      .maybeSingle();
+    if (existe) continue; // já está na vitrine — não mexe
+
+    const { data: prod } = await supabase
+      .from("produtos")
+      .select("titulo, link_afiliado, url_produto")
+      .eq("id", pid)
+      .maybeSingle();
+    if (!prod) continue;
+    const shortUrl = (prod.link_afiliado as string) || (prod.url_produto as string);
+    if (!shortUrl) continue;
+
+    let slug = slugify(String(prod.titulo)).slice(0, 60) || `produto-${pid}`;
+    const raiz = slug;
+    for (let i = 2; i < 60; i++) {
+      const { data: dup } = await supabase.from("links").select("id").eq("slug", slug).maybeSingle();
+      if (!dup) break;
+      slug = `${raiz}-${i}`;
+    }
+
+    await supabase.from("links").insert({
+      produto_id: pid,
+      slug,
+      short_url: shortUrl,
+      ativo: true,
+      ordem: ordem++,
+      expira_em: expira,
+    });
+    await supabase.from("produtos").update({ status: "curado" }).eq("id", pid);
+  }
+}
+
+/**
+ * Faxina da vitrine: nos links já EXPIRADOS (validade venceu), quem teve 0 clique é
+ * removido (link inativo + produto descartado); quem teve clique VIRA PERMANENTE
+ * (tira a validade) — ganhou o lugar. Mantém a vitrine enxuta e só com o que performa.
+ */
+export async function faxinaExpirados(
+  supabase: SupabaseClient,
+): Promise<{ removidos: number; promovidos: number }> {
+  const agora = new Date().toISOString();
+  const { data: expirados } = await supabase
+    .from("links")
+    .select("id, produto_id, cliques")
+    .eq("ativo", true)
+    .not("expira_em", "is", null)
+    .lt("expira_em", agora);
+
+  let removidos = 0;
+  let promovidos = 0;
+  for (const l of expirados ?? []) {
+    if ((l.cliques ?? 0) === 0) {
+      await supabase.from("links").update({ ativo: false }).eq("id", l.id);
+      await supabase.from("produtos").update({ status: "descartado" }).eq("id", l.produto_id);
+      removidos++;
+    } else {
+      await supabase.from("links").update({ expira_em: null }).eq("id", l.id);
+      promovidos++;
+    }
+  }
+  return { removidos, promovidos };
 }

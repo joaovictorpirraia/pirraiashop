@@ -8,7 +8,8 @@ import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes, classificarCategoria } from "@/lib/curadoria";
 import { gerarConteudo, salvarRascunho, type ProdutoParaConteudo } from "@/lib/conteudo";
 import { publicarCarrossel as publicarCarrosselIG } from "@/lib/instagram";
-import { inserirRascunhoCarrossel, montarRascunhoAuto } from "@/lib/carrossel";
+import { inserirRascunhoCarrossel, montarRascunhoAuto, curarProdutosParaVitrine } from "@/lib/carrossel";
+import { rodarLoopDiario } from "@/lib/loop";
 import { buscarItens } from "@/lib/mercadolivre";
 import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
@@ -1036,6 +1037,40 @@ export async function montarCarrosselAuto() {
 }
 
 /**
+ * Roda o loop do dia: importa produtos Shopee do tema da vez, monta o rascunho de
+ * carrossel com os melhores e faz a faxina dos expirados. Botão no /admin/instagram
+ * e a rota de cron. Os produtos só entram na vitrine quando o carrossel é publicado.
+ */
+export async function rodarLoopDoDia() {
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  try {
+    const res = await rodarLoopDiario(supabase, 8);
+    await supabase.from("execucoes").insert({
+      job: "loop_diario",
+      ok: true,
+      itens: res.importados,
+      detalhe: { origem: "admin", ...res },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = `/admin/instagram?ok=montado&tema=${encodeURIComponent(res.tema)}`;
+  } catch (e) {
+    const msg = (e as Error).message;
+    await supabase.from("execucoes").insert({
+      job: "loop_diario",
+      ok: false,
+      itens: 0,
+      detalhe: { origem: "admin", erro: msg },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = "/admin/instagram?erro=" + encodeURIComponent(msg);
+  }
+  revalidar();
+  redirect(destino);
+}
+
+/**
  * Publica um rascunho de carrossel no Instagram. Gera (aquece) os criativos de
  * cada produto no Storage, monta as URLs JPEG diretas e chama a Graph API. Usa a
  * legenda (possivelmente editada) do formulário. Marca publicado/erro no registro.
@@ -1076,6 +1111,10 @@ export async function publicarCarrossel(formData: FormData) {
       await fetch(`${base}/api/criativo/${pid}`, { redirect: "manual", cache: "no-store" }).catch(() => {});
       imageUrls.push(`${supaUrl}/storage/v1/object/public/criativos/${pid}.jpg`);
     }
+
+    // cura os produtos pra vitrine (validade 15 dias) — assim o público acha pelo
+    // nome quando o post sair; some sozinho depois. Idempotente (pula quem já tem link).
+    await curarProdutosParaVitrine(supabase, ids, 15);
 
     const { id: mediaId } = await publicarCarrosselIG({ imageUrls, caption });
 
