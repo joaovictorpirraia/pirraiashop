@@ -5,6 +5,7 @@ import {
   curarProduto,
   descartarProduto,
   alternarDestaque,
+  alternarPausa,
   moverLink,
   removerDaVitrine,
   reordenarPorPerformance,
@@ -17,6 +18,7 @@ import {
   limparFila,
 } from "./actions";
 import { CompartilharAdmin } from "@/components/CompartilharAdmin";
+import { CopiarLegenda } from "@/components/CopiarLegenda";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +58,7 @@ interface LinkVitrine {
   slug: string;
   short_url: string;
   destaque: boolean;
+  pausado: boolean;
   ordem: number | null;
   cliques: number;
   produto: {
@@ -87,6 +90,7 @@ export default async function Admin({
     q?: string;
     limpar?: string;
     fila_limpa?: string;
+    ordenar?: string;
   };
 }) {
   const supabase = supabaseAdmin();
@@ -119,7 +123,7 @@ export default async function Admin({
   const { data: linksRaw } = await supabase
     .from("links")
     .select(
-      "id, slug, short_url, destaque, ordem, cliques, produto:produtos!inner(id, titulo, categoria, preco, imagem_url, loja_nome, status, comissao_pct, comissao_valor)",
+      "id, slug, short_url, destaque, pausado, ordem, cliques, produto:produtos!inner(id, titulo, categoria, preco, imagem_url, loja_nome, status, comissao_pct, comissao_valor)",
     )
     .eq("ativo", true)
     .order("destaque", { ascending: false })
@@ -147,10 +151,25 @@ export default async function Admin({
     })
     .filter((l) => l.produto && ["curado", "publicado"].includes(l.produto.status));
   const nVitrine = vitrineTodos.length;
-  const vitrine =
+  const vitrineFiltrada =
     ver === "vitrine" && q
       ? vitrineTodos.filter((l) => norm(l.produto.titulo).includes(norm(q)))
       : vitrineTodos;
+
+  // ordenação SÓ DE VISUALIZAÇÃO (não mexe na ordem pública). Com um sort ativo,
+  // as setas de mover somem (não faz sentido reordenar numa lista sortada por métrica).
+  const ordenar = searchParams.ordenar === "cliques" || searchParams.ordenar === "comissao"
+    ? searchParams.ordenar
+    : null;
+  const vitrine = !ordenar
+    ? vitrineFiltrada
+    : [...vitrineFiltrada].sort((a, b) => {
+        if (ordenar === "cliques") return b.cliques - a.cliques;
+        const cvA = Number(a.produto.comissao_valor ?? 0);
+        const cvB = Number(b.produto.comissao_valor ?? 0);
+        if (cvA !== cvB) return cvB - cvA;
+        return Number(b.produto.comissao_pct ?? 0) - Number(a.produto.comissao_pct ?? 0);
+      });
 
   return (
     <div className="min-h-screen bg-areia">
@@ -483,6 +502,40 @@ export default async function Admin({
               </div>
             )}
           </div>
+
+          {/* ORDENAR (só visualização — não muda a ordem pública) */}
+          {nVitrine > 1 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-semibold text-fumo">Ver por:</span>
+              {(
+                [
+                  { chave: "", rotulo: "Ordem da vitrine" },
+                  { chave: "cliques", rotulo: "Mais clicados" },
+                  { chave: "comissao", rotulo: "Maior comissão" },
+                ] as const
+              ).map((o) => {
+                const ativo = (ordenar ?? "") === o.chave;
+                const href = `/admin?ver=vitrine${o.chave ? `&ordenar=${o.chave}` : ""}${
+                  q ? `&q=${encodeURIComponent(q)}` : ""
+                }`;
+                return (
+                  <a
+                    key={o.chave || "vitrine"}
+                    href={href}
+                    className={`rounded-full px-3 py-1 font-semibold transition-colors ${
+                      ativo ? "bg-tinta text-white" : "bg-white text-fumo shadow-carta hover:text-tinta"
+                    }`}
+                  >
+                    {o.rotulo}
+                  </a>
+                );
+              })}
+              {ordenar && (
+                <span className="text-fumo">· ordenação de visualização; as setas voltam na “Ordem da vitrine”</span>
+              )}
+            </div>
+          )}
+
           {vitrine.length === 0 ? (
             <p className="rounded-2xl bg-white p-6 text-center text-sm text-fumo shadow-carta">
               {q
@@ -497,6 +550,7 @@ export default async function Admin({
                   l={l}
                   primeiro={i === 0}
                   ultimo={i === vitrine.length - 1}
+                  mostrarSetas={!ordenar}
                 />
               ))}
             </ul>
@@ -644,14 +698,20 @@ function VitrineRow({
   l,
   primeiro,
   ultimo,
+  mostrarSetas,
 }: {
   l: LinkVitrine;
   primeiro: boolean;
   ultimo: boolean;
+  mostrarSetas: boolean;
 }) {
   return (
-    <li className="flex flex-col gap-3 rounded-2xl bg-white p-3.5 shadow-carta">
-      <div className="flex items-center gap-3.5">
+    <li
+      className={`flex flex-col gap-3 rounded-2xl bg-white p-3.5 shadow-carta ${
+        l.pausado ? "ring-1 ring-amber-300" : ""
+      }`}
+    >
+      <div className={`flex items-center gap-3.5 ${l.pausado ? "opacity-60" : ""}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={l.produto.imagem_url ?? ""}
@@ -659,7 +719,12 @@ function VitrineRow({
           className="h-20 w-20 shrink-0 rounded-xl object-cover"
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-1.5">
+          <div className="flex flex-wrap items-start gap-1.5">
+            {l.pausado && (
+              <span className="mt-0.5 shrink-0 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                Pausado
+              </span>
+            )}
             {l.destaque && (
               <span className="mt-0.5 shrink-0 rounded bg-tinta px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
                 Destaque
@@ -686,8 +751,24 @@ function VitrineRow({
         </div>
       </div>
 
+      {/* ações: usar/divulgar */}
       <div className="flex flex-wrap items-center gap-1.5 border-t border-black/5 pt-3">
-        {/* editar */}
+        <CopiarLegenda produtoId={l.produto.id} />
+        <CompartilharAdmin slug={l.slug} titulo={l.produto.titulo} />
+        {l.short_url && (
+          <a
+            href={l.short_url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-8 items-center justify-center rounded-lg border border-black/10 px-2.5 text-xs font-semibold text-tinta transition-colors hover:bg-areia"
+          >
+            Ver na loja
+          </a>
+        )}
+      </div>
+
+      {/* ações: gerir */}
+      <div className="flex flex-wrap items-center gap-1.5">
         <a
           href={`/admin/editar/${l.produto.id}`}
           aria-label="Editar produto"
@@ -695,33 +776,35 @@ function VitrineRow({
         >
           Editar
         </a>
-        {/* compartilhar link do produto */}
-        <CompartilharAdmin slug={l.slug} titulo={l.produto.titulo} />
-        {/* mover */}
-        <form action={moverLink}>
-          <input type="hidden" name="linkId" value={l.id} />
-          <input type="hidden" name="direcao" value="cima" />
-          <button
-            type="submit"
-            disabled={primeiro}
-            aria-label="Mover pra cima"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 text-tinta disabled:opacity-30"
-          >
-            ↑
-          </button>
-        </form>
-        <form action={moverLink}>
-          <input type="hidden" name="linkId" value={l.id} />
-          <input type="hidden" name="direcao" value="baixo" />
-          <button
-            type="submit"
-            disabled={ultimo}
-            aria-label="Mover pra baixo"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 text-tinta disabled:opacity-30"
-          >
-            ↓
-          </button>
-        </form>
+
+        {mostrarSetas && (
+          <>
+            <form action={moverLink}>
+              <input type="hidden" name="linkId" value={l.id} />
+              <input type="hidden" name="direcao" value="cima" />
+              <button
+                type="submit"
+                disabled={primeiro}
+                aria-label="Mover pra cima"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 text-tinta disabled:opacity-30"
+              >
+                ↑
+              </button>
+            </form>
+            <form action={moverLink}>
+              <input type="hidden" name="linkId" value={l.id} />
+              <input type="hidden" name="direcao" value="baixo" />
+              <button
+                type="submit"
+                disabled={ultimo}
+                aria-label="Mover pra baixo"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 text-tinta disabled:opacity-30"
+              >
+                ↓
+              </button>
+            </form>
+          </>
+        )}
 
         {/* destaque */}
         <form action={alternarDestaque}>
@@ -736,6 +819,27 @@ function VitrineRow({
             }`}
           >
             {l.destaque ? "Tirar destaque" : "Destacar"}
+          </button>
+        </form>
+
+        {/* pausar / reativar */}
+        <form action={alternarPausa}>
+          <input type="hidden" name="linkId" value={l.id} />
+          <input type="hidden" name="pausar" value={(!l.pausado).toString()} />
+          <button
+            type="submit"
+            title={
+              l.pausado
+                ? "Volta o produto pra vitrine pública."
+                : "Tira o produto da vitrine pública sem descartar (ex.: sem estoque). Reativa depois."
+            }
+            className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${
+              l.pausado
+                ? "bg-amber-400 text-white hover:brightness-95"
+                : "border border-black/10 text-tinta hover:bg-areia"
+            }`}
+          >
+            {l.pausado ? "Reativar" : "Pausar"}
           </button>
         </form>
 
