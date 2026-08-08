@@ -29,6 +29,7 @@ function aliClient(): AliexpressAfiliado | null {
 
 function revalidar() {
   revalidatePath("/admin");
+  revalidatePath("/admin/instagram"); // rascunhos/capa mudam com as actions do carrossel
   revalidatePath("/"); // a home muda quando um produto entra/sai da vitrine
 }
 
