@@ -30,12 +30,17 @@ export function temaDoDia(): { nome: string; keyword: string } {
 export async function rodarLoopDiario(
   supabase: SupabaseClient,
   n = 8,
+  keyword?: string,
 ): Promise<{ tema: string; keyword: string; importados: number; carrosselId: number; faxina: { removidos: number; promovidos: number } }> {
   const appId = process.env.SHOPEE_APP_ID;
   const secret = process.env.SHOPEE_SECRET;
   if (!appId || !secret) throw new Error("Shopee não configurada (SHOPEE_APP_ID/SECRET)");
 
-  const tema = temaDoDia();
+  // tema escolhido (do seletor) ou o do rodízio do dia
+  const kw = keyword?.trim();
+  const tema = kw
+    ? (TEMAS.find((t) => t.keyword === kw) ?? { nome: kw, keyword: kw })
+    : temaDoDia();
   const shopee = new ShopeeAffiliate({ appId, secret });
   const pg = await shopee.buscarOfertas({ keyword: tema.keyword, limit: 50 });
   if (!pg.nodes.length) throw new Error(`Shopee não retornou ofertas pra "${tema.keyword}"`);

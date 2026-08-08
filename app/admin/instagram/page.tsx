@@ -3,6 +3,7 @@ import { brl } from "@/lib/format";
 import { instagramConfigurado } from "@/lib/instagram";
 import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel } from "../actions";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
+import { TEMAS } from "@/lib/loop";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +125,31 @@ export default async function InstagramAdmin({
                   className="whitespace-nowrap rounded-full bg-pirraia px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-pirraia-dark"
                 >
                   Rodar loop do dia
+                </BotaoSubmit>
+              </form>
+              {/* loop com TEMA escolhido (manual): dropdown + palavra custom */}
+              <form action={rodarLoopDoDia} className="flex flex-wrap items-center gap-1.5">
+                <select
+                  name="tema"
+                  className="rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
+                >
+                  {TEMAS.map((t) => (
+                    <option key={t.keyword} value={t.keyword}>
+                      {t.nome}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  name="tema_custom"
+                  placeholder="ou palavra…"
+                  className="w-28 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
+                />
+                <BotaoSubmit
+                  pendingLabel="Importando…"
+                  title="Importa da Shopee o tema escolhido (ou a palavra digitada) e monta o rascunho."
+                  className="whitespace-nowrap rounded-full bg-pirraia px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-pirraia-dark"
+                >
+                  Montar tema
                 </BotaoSubmit>
               </form>
               {/* automático: a IA escolhe da vitrine já curada */}

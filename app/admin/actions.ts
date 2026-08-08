@@ -1078,12 +1078,17 @@ export async function montarCarrosselAuto() {
  * carrossel com os melhores e faz a faxina dos expirados. Botão no /admin/instagram
  * e a rota de cron. Os produtos só entram na vitrine quando o carrossel é publicado.
  */
-export async function rodarLoopDoDia() {
+export async function rodarLoopDoDia(formData?: FormData) {
+  // tema escolhido no seletor (custom tem prioridade); vazio = rodízio do dia
+  const custom = String(formData?.get("tema_custom") ?? "").trim();
+  const sel = String(formData?.get("tema") ?? "").trim();
+  const keyword = custom || sel || undefined;
+
   const supabase = supabaseAdmin();
   const inicio = Date.now();
   let destino: string;
   try {
-    const res = await rodarLoopDiario(supabase, 8);
+    const res = await rodarLoopDiario(supabase, 8, keyword);
     await supabase.from("execucoes").insert({
       job: "loop_diario",
       ok: true,
