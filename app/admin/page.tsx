@@ -16,6 +16,7 @@ import {
   limparExemplos,
   limparFila,
 } from "./actions";
+import { CompartilharAdmin } from "@/components/CompartilharAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -154,7 +155,7 @@ export default async function Admin({
   return (
     <div className="min-h-screen bg-areia">
       <header className="sticky top-0 z-30 border-b border-black/5 bg-areia/90 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-3.5">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
           <span className="text-lg font-extrabold tracking-tight text-tinta">
             pirraia<span className="text-pirraia">.</span>{" "}
             <span className="text-fumo">admin</span>
@@ -191,9 +192,9 @@ export default async function Admin({
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-10 px-5 py-8">
+      <main className="mx-auto max-w-5xl space-y-10 px-5 py-8">
         {/* IMPORTAR POR LINK — cola o link do produto Shopee/AliExpress → vitrine pronto */}
-        <section className="rounded-2xl bg-white p-4 shadow-carta">
+        <section className="mx-auto w-full max-w-3xl rounded-2xl bg-white p-4 shadow-carta">
           <div className="mb-2 flex items-baseline justify-between gap-2">
             <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
               Importar por link
@@ -251,7 +252,7 @@ export default async function Admin({
         )}
 
         {/* SWITCHER Fila/Vitrine + busca por nome */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-3">
           <div className="flex gap-2">
             <a
               href={`/admin?ver=fila${q ? `&q=${encodeURIComponent(q)}` : ""}`}
@@ -441,7 +442,7 @@ export default async function Admin({
                 : "Nada novo na fila. Quando a ingestão trouxer produtos, eles caem aqui."}
             </p>
           ) : (
-            <ul className="space-y-4">
+            <ul className="grid items-start gap-4 lg:grid-cols-2">
               {fila.map((p) => (
                 <FilaCard key={p.id} p={p} categorias={categorias} />
               ))}
@@ -489,7 +490,7 @@ export default async function Admin({
                 : "Nenhum produto publicado ainda. Cure algo da fila."}
             </p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="grid items-start gap-3 lg:grid-cols-2">
               {vitrine.map((l, i) => (
                 <VitrineRow
                   key={l.id}
@@ -649,46 +650,53 @@ function VitrineRow({
   ultimo: boolean;
 }) {
   return (
-    <li className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-carta">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={l.produto.imagem_url ?? ""}
-        alt={l.produto.titulo}
-        className="h-14 w-14 shrink-0 rounded-lg object-cover"
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          {l.destaque && (
-            <span className="rounded bg-tinta px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
-              Destaque
+    <li className="flex flex-col gap-3 rounded-2xl bg-white p-3.5 shadow-carta">
+      <div className="flex items-center gap-3.5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={l.produto.imagem_url ?? ""}
+          alt={l.produto.titulo}
+          className="h-20 w-20 shrink-0 rounded-xl object-cover"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-1.5">
+            {l.destaque && (
+              <span className="mt-0.5 shrink-0 rounded bg-tinta px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                Destaque
+              </span>
+            )}
+            <span className="line-clamp-2 text-sm font-semibold text-tinta">
+              {l.produto.titulo}
             </span>
-          )}
-          <span className="truncate text-sm font-semibold text-tinta">
-            {l.produto.titulo}
-          </span>
-          {l.produto.comissao_pct != null && Number(l.produto.comissao_pct) > 0 && (
-            <span className="ml-auto shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
-              {Number(l.produto.comissao_pct).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
-              {l.produto.comissao_valor != null && Number(l.produto.comissao_valor) > 0
-                ? ` · ${brl(l.produto.comissao_valor)}`
-                : ""}
-            </span>
-          )}
-        </div>
-        <div className="mt-0.5 text-xs text-fumo">
-          {brl(l.produto.preco)} · /r/{l.slug} · {l.cliques} cliques
+          </div>
+          <div className="mt-1 flex items-center gap-2">
+            <span className="text-base font-extrabold text-tinta">{brl(l.produto.preco)}</span>
+            {l.produto.comissao_pct != null && Number(l.produto.comissao_pct) > 0 && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                {Number(l.produto.comissao_pct).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+                {l.produto.comissao_valor != null && Number(l.produto.comissao_valor) > 0
+                  ? ` · ${brl(l.produto.comissao_valor)}`
+                  : ""}
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 truncate text-xs text-fumo">
+            /r/{l.slug} · {l.cliques} cliques
+          </div>
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1.5 border-t border-black/5 pt-3">
         {/* editar */}
         <a
           href={`/admin/editar/${l.produto.id}`}
           aria-label="Editar produto"
-          className="flex h-8 items-center justify-center rounded-lg border border-black/10 px-2 text-xs font-semibold text-tinta transition-colors hover:bg-areia"
+          className="flex h-8 items-center justify-center rounded-lg border border-black/10 px-2.5 text-xs font-semibold text-tinta transition-colors hover:bg-areia"
         >
           Editar
         </a>
+        {/* compartilhar link do produto */}
+        <CompartilharAdmin slug={l.slug} titulo={l.produto.titulo} />
         {/* mover */}
         <form action={moverLink}>
           <input type="hidden" name="linkId" value={l.id} />
@@ -732,7 +740,7 @@ function VitrineRow({
         </form>
 
         {/* remover */}
-        <form action={removerDaVitrine}>
+        <form action={removerDaVitrine} className="ml-auto">
           <input type="hidden" name="linkId" value={l.id} />
           <input type="hidden" name="produtoId" value={l.produto.id} />
           <button
