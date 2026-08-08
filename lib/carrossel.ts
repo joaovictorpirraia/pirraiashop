@@ -2,6 +2,34 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { gerarLegendaCarrossel } from "./conteudo";
 import { slugify } from "./slug";
 
+const semAcento = (s: string) =>
+  s.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/**
+ * Remove produtos VISUALMENTE duplicados: a Shopee lista o mesmo produto de
+ * vendedores diferentes (item_id diferente, mas imagem/título iguais). Filtra por
+ * mesma imagem OU mesmo início de título (30 chars normalizados). Mantém o 1º
+ * (que já vem ranqueado). Preserva a ordem.
+ */
+export function dedupVisual<T>(
+  itens: T[],
+  img: (t: T) => string | null | undefined,
+  tit: (t: T) => string,
+): T[] {
+  const imgs = new Set<string>();
+  const tits = new Set<string>();
+  const out: T[] = [];
+  for (const it of itens) {
+    const ci = (img(it) || "").split("?")[0];
+    const ct = semAcento(tit(it)).replace(/[^a-z0-9 ]/g, "").slice(0, 30);
+    if ((ci && imgs.has(ci)) || (ct && tits.has(ct))) continue;
+    if (ci) imgs.add(ci);
+    if (ct) tits.add(ct);
+    out.push(it);
+  }
+  return out;
+}
+
 /** Produto mínimo pra montar o carrossel (o resto é só pra ranquear/selecionar). */
 export interface ProdutoCarrossel {
   id: number;
@@ -81,15 +109,19 @@ export async function selecionarProdutosAuto(
   }
 
   const base = melhorLista.length >= 3 ? melhorLista : todos;
-  const produtos = [...base].sort(rank).slice(0, n);
+  const ranqueados = [...base].sort(rank);
+  const produtos = dedupVisual(ranqueados, () => null, (p) => p.titulo).slice(0, n);
   return { produtos, categoria: melhorLista.length >= 3 ? melhorCat : null };
 }
 
 /** Gera capa/legenda (IA) e insere um rascunho de carrossel. Retorna o id. */
 export async function inserirRascunhoCarrossel(
   supabase: SupabaseClient,
-  produtos: ProdutoCarrossel[],
+  produtosBrutos: ProdutoCarrossel[],
 ): Promise<number> {
+  // rede de segurança: tira id repetido e duplicado visual (título) de qualquer caminho
+  const porId = produtosBrutos.filter((p, i, arr) => arr.findIndex((q) => q.id === p.id) === i);
+  const produtos = dedupVisual(porId, () => null, (p) => p.titulo);
   if (produtos.length < 2) throw new Error("produtos insuficientes pra montar o carrossel");
   const { gancho, tema_fundo, legenda, hashtags } = await gerarLegendaCarrossel(
     produtos.map((p) => ({ titulo: p.titulo, preco: p.preco, desconto_pct: p.desconto_pct })),
