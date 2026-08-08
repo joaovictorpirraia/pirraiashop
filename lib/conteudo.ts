@@ -157,20 +157,23 @@ const SCHEMA_CARROSSEL = {
   additionalProperties: false,
   properties: {
     gancho: { type: "string" },
+    tema_fundo: { type: "string" },
     legenda: { type: "string" },
+    palavras: { type: "array", items: { type: "string" } },
     hashtags: { type: "array", items: { type: "string" } },
   },
-  required: ["gancho", "legenda", "hashtags"],
+  required: ["gancho", "tema_fundo", "legenda", "palavras", "hashtags"],
 } as const;
 
 /**
- * Gera o gancho da CAPA + legenda + hashtags de um post CARROSSEL "achados do dia".
- * Diferente do gerarConteudo (1 produto): a copy fala do conjunto, e o `gancho` é a
- * frase-título da capa (1º slide, o que segura o scroll). Usada pelo montarCarrossel.
+ * Gera o gancho da CAPA + tema do fundo + legenda + palavras-chave + hashtags de um
+ * post CARROSSEL "achados do dia". O `gancho` é a frase-título da capa (1º slide); o
+ * `tema_fundo` é a query (EN) da foto lifestyle de fundo; `palavras` alimenta o SEO da
+ * legenda. A CTA já traz o "link na bio OU comenta QUERO". Usada pelo montarCarrossel.
  */
 export async function gerarLegendaCarrossel(
   produtos: Array<{ titulo: string; preco: number | string | null; desconto_pct: number | null }>,
-): Promise<{ gancho: string; legenda: string; hashtags: string[] }> {
+): Promise<{ gancho: string; tema_fundo: string; legenda: string; palavras: string[]; hashtags: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY ausente — geração de conteúdo não configurada");
   }
@@ -182,9 +185,9 @@ Formato: post CARROSSEL de "achados do dia" no FEED do Instagram, com vários pr
   "COISAS QUE VOCÊ NÃO SABIA QUE PRECISAVA"
   "ACHADINHOS QUE VÃO SALVAR SEU JOGO"
   "MINHAS COMPRAS QUE FORAM MELHOR DO QUE O ESPERADO"
-  "TENHO CIÚMES DE MOSTRAR MAS VOCÊS MERECEM VER"
-  Não invente que é de uma loja específica se os produtos não forem todos dela.
-- legenda: 2 a 5 linhas. 1ª linha um gancho que para o scroll. Depois convida a ARRASTAR pro lado pra ver todos e ir no LINK DA BIO pra comprar. Não precisa listar preço de cada um.
+- tema_fundo: uma busca CURTA EM INGLÊS pra achar a foto LIFESTYLE de fundo da capa (aspiracional, sem produto), de acordo com o tema dos produtos. Ex.: "cozy modern living room", "bright scandinavian kitchen", "beach travel lifestyle", "clean skincare vanity", "minimal home office desk". Só o termo de busca, nada mais.
+- legenda: 2 a 5 linhas. 1ª linha um gancho que para o scroll. Depois convida a ARRASTAR pro lado pra ver todos. Termine com a CTA EXATA: "🔗 os links tão no link da bio — ou comenta QUERO que eu te mando no direct 📩". Não liste preço de cada um.
+- palavras: 15 a 25 palavras-chave curtas em pt-BR (SEO/alcance), sem "#", separáveis por vírgula. Misture o tema dos produtos + termos de alcance (ex.: achadinhos da shopee, produtos virais, shopee finds, viralizou no tiktok, compras inteligentes, favoritos da internet, promoções shopee).
 - hashtags: 6 a 12 minúsculas, sem "#", misturando nicho e alcance (achadinhos, achadosdatiktok, shopeebrasil, organizacao, etc).`;
 
   const resp = await client.chat.completions.create({
@@ -220,16 +223,20 @@ Formato: post CARROSSEL de "achados do dia" no FEED do Instagram, com vários pr
     /* cai no erro abaixo */
   }
   const gancho = typeof o.gancho === "string" ? o.gancho.trim() : "";
+  const tema_fundo = typeof o.tema_fundo === "string" ? o.tema_fundo.trim() : "";
   const legenda = typeof o.legenda === "string" ? o.legenda.trim() : "";
-  const hashtags = Array.isArray(o.hashtags)
-    ? o.hashtags
-        .filter((h): h is string => typeof h === "string")
-        .map((h) => h.trim().replace(/^#+/, "").toLowerCase())
-        .filter(Boolean)
-        .slice(0, 15)
-    : [];
+  const limpaLista = (v: unknown, max: number) =>
+    Array.isArray(v)
+      ? v
+          .filter((h): h is string => typeof h === "string")
+          .map((h) => h.trim().replace(/^#+/, "").toLowerCase())
+          .filter(Boolean)
+          .slice(0, max)
+      : [];
+  const palavras = limpaLista(o.palavras, 25);
+  const hashtags = limpaLista(o.hashtags, 15);
   if (!legenda) throw new Error("a IA não devolveu legenda");
-  return { gancho, legenda, hashtags };
+  return { gancho, tema_fundo, legenda, palavras, hashtags };
 }
 
 /**

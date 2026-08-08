@@ -991,16 +991,18 @@ export async function montarCarrossel(formData: FormData) {
       .filter((p): p is NonNullable<typeof p> => Boolean(p));
     if (ordenados.length < 2) throw new Error("produtos não encontrados");
 
-    const { gancho, legenda, hashtags } = await gerarLegendaCarrossel(
+    const { gancho, tema_fundo, legenda, palavras, hashtags } = await gerarLegendaCarrossel(
       ordenados.map((p) => ({ titulo: p.titulo, preco: p.preco, desconto_pct: p.desconto_pct })),
     );
-    const legendaFinal = hashtags.length
-      ? `${legenda}\n\n${hashtags.map((h) => `#${h}`).join(" ")}`
-      : legenda;
+    const partes = [legenda];
+    if (hashtags.length) partes.push(hashtags.map((h) => `#${h}`).join(" "));
+    if (palavras.length) partes.push(palavras.join(", "));
+    const legendaFinal = partes.join("\n\n");
 
     const { error } = await supabase.from("carrosseis").insert({
       produto_ids: ids,
       gancho,
+      tema_fundo,
       legenda: legendaFinal,
       status: "rascunho",
     });

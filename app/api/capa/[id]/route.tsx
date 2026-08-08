@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { PNG } from "pngjs";
 import { encode as encodeJpeg } from "jpeg-js";
 import { supabaseAdmin } from "@/lib/supabase";
+import { buscarFundoPexels } from "@/lib/fundos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,15 +44,24 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const supabase = supabaseAdmin();
   const { data: c } = await supabase
     .from("carrosseis")
-    .select("gancho, produto_ids")
+    .select("gancho, produto_ids, tema_fundo, fundo_url")
     .eq("id", id)
     .maybeSingle();
   if (!c) return new NextResponse("carrossel não encontrado", { status: 404 });
 
   const gancho = (String(c.gancho || "achados do dia")).toUpperCase();
   const ids = (c.produto_ids as number[]) ?? [];
-  let fundo = "";
-  if (ids[0]) {
+
+  // fundo lifestyle: usa o travado; senão busca no Pexels e trava; senão foto do produto
+  let fundo = (c.fundo_url as string) || "";
+  if (!fundo) {
+    const escolhido = await buscarFundoPexels(String(c.tema_fundo || ""));
+    if (escolhido) {
+      fundo = escolhido;
+      await supabase.from("carrosseis").update({ fundo_url: fundo }).eq("id", id);
+    }
+  }
+  if (!fundo && ids[0]) {
     const { data: p } = await supabase.from("produtos").select("imagem_url").eq("id", ids[0]).maybeSingle();
     if (p?.imagem_url) fundo = jpegDe(p.imagem_url as string);
   }
