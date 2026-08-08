@@ -156,27 +156,35 @@ const SCHEMA_CARROSSEL = {
   type: "object",
   additionalProperties: false,
   properties: {
+    gancho: { type: "string" },
     legenda: { type: "string" },
     hashtags: { type: "array", items: { type: "string" } },
   },
-  required: ["legenda", "hashtags"],
+  required: ["gancho", "legenda", "hashtags"],
 } as const;
 
 /**
- * Gera a legenda + hashtags de um post CARROSSEL "achados do dia" (vários produtos
- * num post só). Diferente do gerarConteudo (1 produto): a copy fala do conjunto e
- * convida a arrastar pro lado + link na bio. Usada pelo montarCarrossel do admin.
+ * Gera o gancho da CAPA + legenda + hashtags de um post CARROSSEL "achados do dia".
+ * Diferente do gerarConteudo (1 produto): a copy fala do conjunto, e o `gancho` é a
+ * frase-título da capa (1º slide, o que segura o scroll). Usada pelo montarCarrossel.
  */
 export async function gerarLegendaCarrossel(
   produtos: Array<{ titulo: string; preco: number | string | null; desconto_pct: number | null }>,
-): Promise<{ legenda: string; hashtags: string[] }> {
+): Promise<{ gancho: string; legenda: string; hashtags: string[] }> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY ausente — geração de conteúdo não configurada");
   }
   const client = new OpenAI();
   const system = `${BASE}
 Formato: post CARROSSEL de "achados do dia" no FEED do Instagram, com vários produtos num post só.
-- legenda: 2 a 5 linhas. 1ª linha um gancho que para o scroll (ex.: "separei os achadinhos de hoje"). Depois convida a ARRASTAR pro lado pra ver todos e ir no LINK DA BIO pra comprar. Não precisa listar preço de cada um.
+- gancho: a FRASE DA CAPA (1º slide) — curta (até ~55 caracteres), em CAIXA ALTA no espírito, que PARA O SCROLL. Baseie no tema comum dos produtos. Estilo destes exemplos:
+  "COISAS DE CASA QUE PARECEM CARAS MAS SÃO BARATINHAS"
+  "COISAS QUE VOCÊ NÃO SABIA QUE PRECISAVA"
+  "ACHADINHOS QUE VÃO SALVAR SEU JOGO"
+  "MINHAS COMPRAS QUE FORAM MELHOR DO QUE O ESPERADO"
+  "TENHO CIÚMES DE MOSTRAR MAS VOCÊS MERECEM VER"
+  Não invente que é de uma loja específica se os produtos não forem todos dela.
+- legenda: 2 a 5 linhas. 1ª linha um gancho que para o scroll. Depois convida a ARRASTAR pro lado pra ver todos e ir no LINK DA BIO pra comprar. Não precisa listar preço de cada um.
 - hashtags: 6 a 12 minúsculas, sem "#", misturando nicho e alcance (achadinhos, achadosdatiktok, shopeebrasil, organizacao, etc).`;
 
   const resp = await client.chat.completions.create({
@@ -211,6 +219,7 @@ Formato: post CARROSSEL de "achados do dia" no FEED do Instagram, com vários pr
   } catch {
     /* cai no erro abaixo */
   }
+  const gancho = typeof o.gancho === "string" ? o.gancho.trim() : "";
   const legenda = typeof o.legenda === "string" ? o.legenda.trim() : "";
   const hashtags = Array.isArray(o.hashtags)
     ? o.hashtags
@@ -220,7 +229,7 @@ Formato: post CARROSSEL de "achados do dia" no FEED do Instagram, com vários pr
         .slice(0, 15)
     : [];
   if (!legenda) throw new Error("a IA não devolveu legenda");
-  return { legenda, hashtags };
+  return { gancho, legenda, hashtags };
 }
 
 /**
