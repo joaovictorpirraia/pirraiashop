@@ -86,18 +86,25 @@ export async function publicarStory(opts: { imageUrl: string }): Promise<{ id: s
   return { id: mediaId };
 }
 
-/** Espera um container ficar FINISHED antes de publicar (carrossel processa em passos). */
+/**
+ * Espera um container de mídia ficar FINISHED antes de publicar. Se estourar o tempo
+ * sem ficar pronto, LANÇA com o último status (melhor que o vago "Media ID is not
+ * available" do media_publish). ~45s de teto — imagem costuma ficar pronta em segundos.
+ */
 async function esperarPronto(containerId: string, token: string): Promise<void> {
-  for (let i = 0; i < 8; i++) {
+  await new Promise((r) => setTimeout(r, 2000)); // dá um respiro pro IG começar a processar
+  let ultimo = "?";
+  for (let i = 0; i < 15; i++) {
     const resp = await fetch(
       `${GRAPH}/${containerId}?fields=status_code&access_token=${encodeURIComponent(token)}`,
     );
     const json = (await resp.json().catch(() => ({}))) as { status_code?: string };
+    ultimo = json.status_code ?? ultimo;
     if (json.status_code === "FINISHED") return;
-    if (json.status_code === "ERROR") throw new Error("Instagram: container do carrossel deu ERROR");
-    await new Promise((r) => setTimeout(r, 2000));
+    if (json.status_code === "ERROR") throw new Error("Instagram: o container da mídia deu ERROR (imagem rejeitada)");
+    await new Promise((r) => setTimeout(r, 3000));
   }
-  // segue e tenta publicar; se não estiver pronto, o media_publish devolve o erro
+  throw new Error(`Instagram: container não ficou pronto a tempo (status: ${ultimo})`);
 }
 
 /**
