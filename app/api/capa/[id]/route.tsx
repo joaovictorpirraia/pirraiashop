@@ -6,6 +6,7 @@ import { PNG } from "pngjs";
 import { encode as encodeJpeg } from "jpeg-js";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buscarFundoPexels } from "@/lib/fundos";
+import { imgDataUri } from "@/lib/imagem";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,15 +20,6 @@ export const dynamic = "force-dynamic";
 const FONT_DIR = join(process.cwd(), "app", "api", "og");
 const fonteRegular = readFileSync(join(FONT_DIR, "OpenSans-Regular.ttf"));
 const fonteBold = readFileSync(join(FONT_DIR, "OpenSans-ExtraBold.ttf"));
-
-function jpegDe(url: string): string {
-  if (/mlstatic\.com/i.test(url)) return url.replace(/\.webp(\?.*)?$/i, ".jpg");
-  if (/susercontent\.com/i.test(url)) {
-    if (/\/file\//.test(url)) return url.replace(/\.webp$/i, "");
-    return url.replace(/susercontent\.com\//i, "susercontent.com/file/").replace(/\.webp$/i, "");
-  }
-  return url;
-}
 
 /** Tamanho da fonte do gancho conforme o comprimento (não tem auto-fit no Satori). */
 function tamGancho(n: number): number {
@@ -65,7 +57,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
   if (!fundo && ids[0]) {
     const { data: p } = await supabase.from("produtos").select("imagem_url").eq("id", ids[0]).maybeSingle();
-    if (p?.imagem_url) fundo = jpegDe(p.imagem_url as string);
+    if (p?.imagem_url) fundo = await imgDataUri(p.imagem_url as string);
   }
 
   const resp = new ImageResponse(

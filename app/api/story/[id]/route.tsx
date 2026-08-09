@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { PNG } from "pngjs";
 import { encode as encodeJpeg } from "jpeg-js";
 import { supabaseAdmin } from "@/lib/supabase";
+import { imgDataUri } from "@/lib/imagem";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,15 +23,6 @@ const FONT_DIR = join(process.cwd(), "app", "api", "og");
 const fonteRegular = readFileSync(join(FONT_DIR, "OpenSans-Regular.ttf"));
 const fonteBold = readFileSync(join(FONT_DIR, "OpenSans-ExtraBold.ttf"));
 
-function jpegDe(url: string): string {
-  if (/mlstatic\.com/i.test(url)) return url.replace(/\.webp(\?.*)?$/i, ".jpg");
-  if (/susercontent\.com/i.test(url)) {
-    if (/\/file\//.test(url)) return url.replace(/\.webp$/i, "");
-    return url.replace(/susercontent\.com\//i, "susercontent.com/file/").replace(/\.webp$/i, "");
-  }
-  return url;
-}
-
 function brl(n: number): string {
   return `R$ ${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -47,7 +39,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .maybeSingle();
   if (!p || !p.imagem_url) return new NextResponse("produto sem imagem", { status: 404 });
 
-  const img = jpegDe(p.imagem_url as string);
+  const img = await imgDataUri(p.imagem_url as string);
   const preco = Number(p.preco);
   const bruto = String(p.titulo);
   const titulo = bruto.length > 60 ? `${bruto.slice(0, 60).trimEnd()}…` : bruto;
