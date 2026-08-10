@@ -37,6 +37,7 @@ export interface ProdutoAli {
   product_id: number | string;
   product_title: string;
   product_main_image_url: string;
+  product_video_url?: string;
   product_detail_url: string;
   promotion_link?: string;
   // preços já convertidos pra target_currency (use estes)
@@ -339,6 +340,7 @@ export function paraProdutoAli(p: ProdutoAli) {
     comissao_pct: comissaoPct || null,
     comissao_valor: comissaoPct ? Number((preco * (comissaoPct / 100)).toFixed(2)) : null,
     imagem_url: p.product_main_image_url,
+    video_url: p.product_video_url || null,
     // URL canônica do produto (não o link genérico) — fallback do redirect se faltar afiliado
     url_produto: p.product_detail_url,
     // promotion_link real por produto (gerado via link.generate) → pré-preenche o Curar

@@ -7,7 +7,7 @@ import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes, classificarCategoria, categorizarProdutos } from "@/lib/curadoria";
 import { gerarConteudo, salvarRascunho, type ProdutoParaConteudo } from "@/lib/conteudo";
-import { publicarCarrossel as publicarCarrosselIG } from "@/lib/instagram";
+import { publicarCarrossel as publicarCarrosselIG, publicarReel, instagramConfigurado } from "@/lib/instagram";
 import { inserirRascunhoCarrossel, montarRascunhoAuto, curarProdutosParaVitrine } from "@/lib/carrossel";
 import { rodarLoopDiario } from "@/lib/loop";
 import { postarStoryAuto } from "@/lib/stories";
@@ -1205,6 +1205,52 @@ export async function removerDoCarrossel(formData: FormData) {
   await supabase.from("carrosseis").update({ produto_ids: novos }).eq("id", carrosselId);
   revalidar();
   redirect("/admin/instagram");
+}
+
+/**
+ * TESTE: pega um produto AliExpress com vídeo e tenta publicar como Reel (vídeo cru,
+ * sem re-encodar). Serve pra descobrir se o IG aceita o formato do vídeo do Ali.
+ */
+export async function postarReelTeste() {
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  try {
+    if (!instagramConfigurado()) throw new Error("Instagram não configurado no servidor");
+    const { data: p } = await supabase
+      .from("produtos")
+      .select("id, titulo, video_url")
+      .eq("origem", "aliexpress")
+      .not("video_url", "is", null)
+      .order("visto_em", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!p?.video_url) {
+      throw new Error("nenhum produto AliExpress com vídeo na base — importe um do Ali (por palavra/link) primeiro");
+    }
+    const caption = `${p.titulo}\n\n🔗 tá no link da bio — é só pesquisar o nome!\n\n#achadinhos #aliexpress #achadinhosdaliexpress`;
+    const { id: mediaId } = await publicarReel({ videoUrl: p.video_url as string, caption });
+    await supabase.from("execucoes").insert({
+      job: "reel_teste",
+      ok: true,
+      itens: 1,
+      detalhe: { produto: p.id, mediaId },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = "/admin/instagram?ok=reel";
+  } catch (e) {
+    const msg = (e as Error).message;
+    await supabase.from("execucoes").insert({
+      job: "reel_teste",
+      ok: false,
+      itens: 0,
+      detalhe: { erro: msg },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = "/admin/instagram?erro=" + encodeURIComponent(msg);
+  }
+  revalidar();
+  redirect(destino);
 }
 
 /** Posta 1 story agora (teste manual do fluxo automático). */
