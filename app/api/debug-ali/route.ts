@@ -10,9 +10,10 @@ export const fetchCache = "force-no-store";
  * GET /api/debug-ali?key=CRON_SECRET&id=1005012618418772
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
+  // chave simples só pra este debug temporário (o CRON_SECRET tem char especial que
+  // quebra na URL do navegador). Removo o endpoint depois do diagnóstico.
   const key = request.nextUrl.searchParams.get("key");
-  if (!secret || key !== secret) {
+  if (key !== "pirraia-debug-2026") {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
   const id = request.nextUrl.searchParams.get("id");
