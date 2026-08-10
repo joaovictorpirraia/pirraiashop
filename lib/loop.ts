@@ -60,6 +60,23 @@ export async function rodarLoopDiario(
   const tema = kw
     ? (TEMAS.find((t) => t.keyword === kw) ?? { nome: kw, keyword: kw })
     : temaDoDia(offset);
+
+  // blindagem contra cron mal configurado: no máximo 1 carrossel por tema por dia (BRT).
+  // Se o agendador disparar de 15 em 15 min, só o 1º do dia monta; o resto é pulado.
+  const diaBRT = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const inicioDiaBRT = new Date(`${diaBRT}T00:00:00-03:00`).toISOString();
+  const { data: jaHoje } = await supabase
+    .from("execucoes")
+    .select("id")
+    .eq("job", "loop_diario")
+    .eq("ok", true)
+    .gte("criado_em", inicioDiaBRT)
+    .contains("detalhe", { keyword: tema.keyword })
+    .limit(1);
+  if (jaHoje && jaHoje.length) {
+    throw new Error(`o carrossel de "${tema.nome}" já foi montado hoje — pulando (o cron deve rodar 1x/dia por horário, não a cada 15 min)`);
+  }
+
   const shopee = new ShopeeAffiliate({ appId, secret });
   const pg = await shopee.buscarOfertas({ keyword: tema.keyword, limit: 50 });
   if (!pg.nodes.length) throw new Error(`Shopee não retornou ofertas pra "${tema.keyword}"`);
