@@ -209,6 +209,9 @@ export class AliexpressAfiliado {
       "aliexpress.affiliate.productdetail.get",
       {
         product_ids: productIds.join(","),
+        // pede explicitamente o vídeo (senão a API não devolve product_video_url)
+        fields:
+          "product_id,product_title,product_main_image_url,product_video_url,product_detail_url,promotion_link,target_sale_price,target_original_price,sale_price,original_price,app_sale_price,discount,commission_rate,evaluate_rate,lastest_volume,shop_id,first_level_category_id,second_level_category_id",
         ship_to_country: "BR",
         target_currency: "BRL",
         target_language: "PT",
