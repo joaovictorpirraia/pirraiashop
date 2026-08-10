@@ -51,42 +51,39 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent: "center",
           width: "100%",
           height: "100%",
           background: "#faf6f0",
           fontFamily: "Open Sans",
-          padding: "300px 90px 300px", // zonas seguras topo/base do story
+          padding: "300px 80px", // conteúdo centralizado, longe da UI do IG (topo/base)
         }}
       >
-        {/* selo */}
-        <div
-          style={{
-            display: "flex",
-            background: "#e11d74",
-            color: "#fff",
-            fontSize: 40,
-            fontWeight: 900,
-            letterSpacing: 4,
-            padding: "16px 44px",
-            borderRadius: 999,
-          }}
-        >
-          ACHADINHO
+        {/* foto do produto com o selo ACHADINHO dentro (evita a UI do IG no topo) */}
+        <div style={{ display: "flex", position: "relative" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={img} width={840} height={840} style={{ objectFit: "cover", borderRadius: 32 }} alt="" />
+          <div
+            style={{
+              display: "flex",
+              position: "absolute",
+              top: 28,
+              left: 28,
+              background: "#e11d74",
+              color: "#fff",
+              fontSize: 34,
+              fontWeight: 900,
+              letterSpacing: 3,
+              padding: "14px 34px",
+              borderRadius: 999,
+            }}
+          >
+            ACHADINHO
+          </div>
         </div>
 
-        {/* foto do produto */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={img}
-          width={860}
-          height={860}
-          style={{ objectFit: "cover", borderRadius: 32 }}
-          alt=""
-        />
-
         {/* nome + preço + CTA */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", marginTop: 44 }}>
           <div
             style={{
               display: "flex",
