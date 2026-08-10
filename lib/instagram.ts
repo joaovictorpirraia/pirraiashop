@@ -87,14 +87,41 @@ export async function publicarStory(opts: { imageUrl: string }): Promise<{ id: s
 }
 
 /**
+ * Publica um REEL (vídeo). A API busca o video_url, processa (demora mais que foto)
+ * e publica; share_to_feed=true também joga no feed. Retorna o id da mídia.
+ * EXPERIMENTAL: o vídeo cru do produto pode não bater as specs do IG (proporção,
+ * mp4/h264) — se o container der ERROR, é isso.
+ */
+export async function publicarReel(opts: { videoUrl: string; caption: string }): Promise<{ id: string }> {
+  const igUserId = process.env.IG_USER_ID;
+  const token = process.env.IG_ACCESS_TOKEN;
+  if (!igUserId || !token) {
+    throw new Error("Instagram não configurado (IG_USER_ID / IG_ACCESS_TOKEN)");
+  }
+  const creationId = await graphPost(`${igUserId}/media`, {
+    media_type: "REELS",
+    video_url: opts.videoUrl,
+    caption: opts.caption,
+    share_to_feed: "true",
+    access_token: token,
+  });
+  await esperarPronto(creationId, token, 28); // ~85s (cabe no timeout do proxy)
+  const mediaId = await graphPost(`${igUserId}/media_publish`, {
+    creation_id: creationId,
+    access_token: token,
+  });
+  return { id: mediaId };
+}
+
+/**
  * Espera um container de mídia ficar FINISHED antes de publicar. Se estourar o tempo
  * sem ficar pronto, LANÇA com o último status (melhor que o vago "Media ID is not
  * available" do media_publish). ~45s de teto — imagem costuma ficar pronta em segundos.
  */
-async function esperarPronto(containerId: string, token: string): Promise<void> {
+async function esperarPronto(containerId: string, token: string, maxTentativas = 15): Promise<void> {
   await new Promise((r) => setTimeout(r, 2000)); // dá um respiro pro IG começar a processar
   let ultimo = "?";
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < maxTentativas; i++) {
     const resp = await fetch(
       `${GRAPH}/${containerId}?fields=status_code&access_token=${encodeURIComponent(token)}`,
     );

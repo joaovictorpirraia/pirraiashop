@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { instagramConfigurado } from "@/lib/instagram";
-import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel, removerDoCarrossel, atualizarGancho, postarStoryAgora } from "../actions";
+import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel, removerDoCarrossel, atualizarGancho, postarStoryAgora, postarReelTeste } from "../actions";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { TEMAS } from "@/lib/loop";
 
@@ -103,6 +103,8 @@ export default async function InstagramAdmin({
               ? "Carrossel publicado no Instagram!"
               : searchParams.ok === "story"
                 ? "Story publicado no Instagram!"
+                : searchParams.ok === "reel"
+                  ? "Reel publicado no Instagram! (o vídeo cru passou 🎬)"
                 : searchParams.tema
                   ? `Loop do dia rodou (tema: ${searchParams.tema}) — revise o rascunho e publique.`
                   : "Carrossel montado — revise e publique abaixo."}
@@ -220,16 +222,28 @@ export default async function InstagramAdmin({
                 últimos 2 dias. Sem link clicável (bloqueio da Meta) — a arte manda pro link da bio.
               </p>
             </div>
-            <form action={postarStoryAgora}>
-              <BotaoSubmit
-                disabled={!igOn}
-                pendingLabel="Postando story…"
-                title={igOn ? "Posta 1 story agora (teste do fluxo automático)" : "Configure o Instagram no servidor primeiro"}
-                className="whitespace-nowrap rounded-full bg-[#C13584] px-4 py-2 text-xs font-bold text-white transition hover:brightness-95 disabled:opacity-40"
-              >
-                Postar story agora
-              </BotaoSubmit>
-            </form>
+            <div className="flex flex-wrap items-center gap-2">
+              <form action={postarStoryAgora}>
+                <BotaoSubmit
+                  disabled={!igOn}
+                  pendingLabel="Postando story…"
+                  title={igOn ? "Posta 1 story agora (teste do fluxo automático)" : "Configure o Instagram no servidor primeiro"}
+                  className="whitespace-nowrap rounded-full bg-[#C13584] px-4 py-2 text-xs font-bold text-white transition hover:brightness-95 disabled:opacity-40"
+                >
+                  Postar story agora
+                </BotaoSubmit>
+              </form>
+              <form action={postarReelTeste}>
+                <BotaoSubmit
+                  disabled={!igOn}
+                  pendingLabel="Postando reel… (demora)"
+                  title="EXPERIMENTAL: pega um produto AliExpress com vídeo e tenta publicar como Reel (vídeo cru)."
+                  className="whitespace-nowrap rounded-full border border-black/10 px-4 py-2 text-xs font-bold text-tinta transition-colors hover:bg-areia disabled:opacity-40"
+                >
+                  Postar Reel (teste)
+                </BotaoSubmit>
+              </form>
+            </div>
           </div>
 
           {storiesRecentes.length > 0 && (
