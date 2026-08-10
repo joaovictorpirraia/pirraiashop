@@ -2,40 +2,55 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { publicarStory } from "./instagram";
 import { curarProdutosParaVitrine } from "./carrossel";
 
+type Cand = { id: number; foraVitrine: boolean; categoria: string | null };
+
 /**
- * Escolhe o próximo produto pra story: prioriza a VITRINE curada (melhor score),
- * e cai na FILA (import fresco) quando a vitrine acaba. `excluir` tira os já
- * escolhidos/postados recentemente. Devolve foraVitrine=true quando veio da fila
- * (aí precisa curar pra vitrine, pra o "link na bio" achar pelo nome).
+ * Escolhe o próximo produto pra story, RODANDO ENTRE CATEGORIAS pra não sair sempre
+ * o mesmo tema. Prioriza a VITRINE curada (melhor score) e cai na FILA quando acaba.
+ * Dentro de cada fonte, prefere produto de categoria AINDA NÃO usada hoje/na rodada
+ * (`catUsadas`); só quando todas as categorias já saíram é que aceita repetir tema,
+ * aí pega o de maior nota. `excluir` tira os já escolhidos/postados recentemente.
+ * Devolve foraVitrine=true quando veio da fila (aí precisa curar pra vitrine).
  */
 async function proximoProdutoStory(
   supabase: SupabaseClient,
   excluir: Set<number>,
-): Promise<{ id: number; foraVitrine: boolean } | null> {
+  catUsadas: Set<string>,
+): Promise<Cand | null> {
+  const escolher = (lista: Cand[]): Cand | null => {
+    if (!lista.length) return null;
+    // 1ª opção: alguém de categoria ainda não usada (já vem ordenado por nota)
+    const nova = lista.find((p) => !catUsadas.has(p.categoria ?? "?"));
+    return nova ?? lista[0]; // todas as categorias já saíram → repete a de maior nota
+  };
+
   const { data: vit } = await supabase
     .from("links")
-    .select("produto:produtos!inner(id, score_ia, status)")
+    .select("produto:produtos!inner(id, score_ia, status, categoria)")
     .eq("ativo", true)
     .eq("pausado", false)
-    .limit(80);
-  const vitProds = ((vit ?? []) as unknown[])
+    .limit(120);
+  const vitProds: Cand[] = ((vit ?? []) as unknown[])
     .map((l) => {
-      const p = (l as { produto: { id: number; score_ia: number | null; status: string } | { id: number; score_ia: number | null; status: string }[] }).produto;
+      const p = (l as { produto: { id: number; score_ia: number | null; status: string; categoria: string | null } | { id: number; score_ia: number | null; status: string; categoria: string | null }[] }).produto;
       return Array.isArray(p) ? p[0] : p;
     })
     .filter((p) => p && ["curado", "publicado"].includes(p.status) && !excluir.has(p.id))
-    .sort((a, b) => (b.score_ia ?? -1) - (a.score_ia ?? -1));
-  if (vitProds[0]) return { id: vitProds[0].id, foraVitrine: false };
+    .sort((a, b) => (b.score_ia ?? -1) - (a.score_ia ?? -1))
+    .map((p) => ({ id: p.id, foraVitrine: false, categoria: p.categoria }));
+  const daVitrine = escolher(vitProds);
+  if (daVitrine) return daVitrine;
 
   const { data: fila } = await supabase
     .from("produtos")
-    .select("id, vendas")
+    .select("id, vendas, categoria")
     .eq("status", "novo")
     .order("vendas", { ascending: false, nullsFirst: false })
-    .limit(80);
-  const filaP = ((fila ?? []) as { id: number }[]).filter((p) => !excluir.has(p.id));
-  if (filaP[0]) return { id: filaP[0].id, foraVitrine: true };
-  return null;
+    .limit(120);
+  const filaP: Cand[] = ((fila ?? []) as { id: number; categoria: string | null }[])
+    .filter((p) => !excluir.has(p.id))
+    .map((p) => ({ id: p.id, foraVitrine: true, categoria: p.categoria }));
+  return escolher(filaP);
 }
 
 /**
@@ -50,6 +65,22 @@ export async function postarStoryAuto(
   const desde = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
   const { data: recentes } = await supabase.from("stories").select("produto_id").gte("criado_em", desde);
   const excluir = new Set<number>((recentes ?? []).map((r) => r.produto_id as number));
+
+  // categorias já postadas HOJE (BRT) — pra o rodízio continuar variando entre os crons do dia
+  const diaBRT0 = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const inicioDia = new Date(`${diaBRT0}T00:00:00-03:00`).toISOString();
+  const { data: hojeStories } = await supabase
+    .from("stories")
+    .select("produto:produtos!inner(categoria)")
+    .eq("ok", true)
+    .gte("criado_em", inicioDia);
+  const catUsadas = new Set<string>(
+    ((hojeStories ?? []) as unknown[])
+      .map((s) => {
+        const p = (s as { produto: { categoria: string | null } | { categoria: string | null }[] }).produto;
+        return (Array.isArray(p) ? p[0]?.categoria : p?.categoria) ?? "?";
+      }),
+  );
 
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://pirraiashop.com.br";
   const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -72,9 +103,10 @@ export async function postarStoryAuto(
   const detalhe: Array<Record<string, unknown>> = [];
 
   for (let i = 0; i < alvo; i++) {
-    const sel = await proximoProdutoStory(supabase, excluir);
+    const sel = await proximoProdutoStory(supabase, excluir, catUsadas);
     if (!sel) break; // acabaram os produtos disponíveis
     excluir.add(sel.id);
+    catUsadas.add(sel.categoria ?? "?"); // marca o tema como usado → próximo story varia
     try {
       // fila → vai pra vitrine (com validade) pra o "link na bio" achar pelo nome
       if (sel.foraVitrine) await curarProdutosParaVitrine(supabase, [sel.id], 15);
