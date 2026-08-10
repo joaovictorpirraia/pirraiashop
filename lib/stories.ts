@@ -55,11 +55,23 @@ export async function postarStoryAuto(
   const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!supaUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL ausente no servidor");
 
+  // blindagem contra cron mal configurado: no máximo 10 stories/dia (BRT)
+  const diaBRT = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const { count: hoje } = await supabase
+    .from("stories")
+    .select("id", { count: "exact", head: true })
+    .eq("ok", true)
+    .gte("criado_em", new Date(`${diaBRT}T00:00:00-03:00`).toISOString());
+  const alvo = Math.min(qtd, Math.max(0, 10 - (hoje ?? 0)));
+  if (alvo === 0) {
+    return { postados: 0, erros: 0, detalhe: [{ pulado: "limite diário de stories (10) atingido" }] };
+  }
+
   let postados = 0;
   let erros = 0;
   const detalhe: Array<Record<string, unknown>> = [];
 
-  for (let i = 0; i < qtd; i++) {
+  for (let i = 0; i < alvo; i++) {
     const sel = await proximoProdutoStory(supabase, excluir);
     if (!sel) break; // acabaram os produtos disponíveis
     excluir.add(sel.id);
