@@ -202,17 +202,6 @@ export class AliexpressAfiliado {
     return produtos;
   }
 
-  /** DEBUG: devolve o `result` cru do productdetail.get (pra inspecionar os campos). */
-  async detalharRaw(productIds: Array<string | number>): Promise<unknown> {
-    return this.chamar("aliexpress.affiliate.productdetail.get", {
-      product_ids: productIds.join(","),
-      ship_to_country: "BR",
-      target_currency: "BRL",
-      target_language: "PT",
-      tracking_id: this.trackingId,
-    });
-  }
-
   /** Detalhe de 1+ produtos por id (batch por vírgula). Gera o link de afiliado real por produto. */
   async detalharProdutos(productIds: Array<string | number>): Promise<ProdutoAli[]> {
     if (productIds.length === 0) return [];
