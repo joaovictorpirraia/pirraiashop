@@ -88,8 +88,40 @@ export class ShopeeAffiliate {
     return `SHA256 Credential=${this.appId}, Timestamp=${ts}, Signature=${sig}`;
   }
 
-  /** Executa uma operação GraphQL crua. */
+  /**
+   * Executa uma operação GraphQL, com RETRY em erro transitório da Shopee.
+   * A Shopee solta "System Error [10000]" e 5xx de vez em quando (soluço do
+   * lado deles) — sem retry, um soluço às 8h perde o carrossel do dia inteiro.
+   * Só retenta o que é transitório; erro de auth/schema estoura de primeira.
+   */
   async executar<T = unknown>(
+    query: string,
+    variables?: Record<string, unknown>,
+  ): Promise<T> {
+    const maxTentativas = 3;
+    let ultimo: ShopeeAffiliateError | undefined;
+    for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+      try {
+        return await this.executarUma<T>(query, variables);
+      } catch (e) {
+        const err = e as ShopeeAffiliateError;
+        ultimo = err;
+        if (tentativa === maxTentativas || !this.ehTransitorio(err)) throw err;
+        await new Promise((r) => setTimeout(r, tentativa * 1500)); // 1,5s → 3s
+      }
+    }
+    throw ultimo ?? new ShopeeAffiliateError("Falha desconhecida na Shopee");
+  }
+
+  /** Erros que valem retentar: System Error, 5xx, timeout, falha de rede. */
+  private ehTransitorio(err: ShopeeAffiliateError): boolean {
+    if (err.code === 10000) return true; // "System Error" do GraphQL
+    if (typeof err.code === "number" && err.code >= 500) return true; // HTTP 5xx
+    return /Timeout|Falha de rede/i.test(err.message);
+  }
+
+  /** Executa uma operação GraphQL crua (1 tentativa). */
+  private async executarUma<T = unknown>(
     query: string,
     variables?: Record<string, unknown>,
   ): Promise<T> {
