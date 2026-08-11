@@ -78,7 +78,9 @@ export async function rodarLoopDiario(
   }
 
   const shopee = new ShopeeAffiliate({ appId, secret });
-  const pg = await shopee.buscarOfertas({ keyword: tema.keyword, limit: 50 });
+  // sortType:2 = mais vendidos (a Shopee já devolve ordenado por vendas, não pela
+  // "relevância" bagunçada) — é o que dá o pool bom em vez de saco misturado
+  const pg = await shopee.buscarOfertas({ keyword: tema.keyword, limit: 50, sortType: 2 });
   if (!pg.nodes.length) throw new Error(`Shopee não retornou ofertas pra "${tema.keyword}"`);
 
   // upsert na fila (novo); status sai do payload (default 'novo', preserva o existente)
@@ -86,16 +88,29 @@ export async function rodarLoopDiario(
   const { data: up, error } = await supabase
     .from("produtos")
     .upsert(linhas, { onConflict: "origem,item_id,shop_id" })
-    .select("id, titulo, preco, desconto_pct, imagem_url, vendas, status");
+    .select("id, titulo, preco, desconto_pct, imagem_url, vendas, avaliacao, status");
   if (error) throw new Error(error.message);
 
-  // ranqueia por vendas, tira descartados e DUPLICADOS visuais (mesmo produto de
-  // vendedores diferentes = item_id diferente mas imagem/título iguais), pega os n melhores
+  // ranqueia por vendas, tira descartados
   const ranked = (up ?? [])
     .filter((p) => p.status !== "descartado")
     .sort((a, b) => (Number(b.vendas) || 0) - (Number(a.vendas) || 0));
+
+  // FILTRO DE QUALIDADE: só entra quem tem imagem + tração de vendas + boa nota.
+  // Corta o lixo que a busca por keyword solta traz junto.
+  const MIN_VENDAS = 100; // vendas reportadas pela Shopee
+  const MIN_NOTA = 4.4; // avaliação 0-5
+  const bons = ranked.filter(
+    (p) =>
+      p.imagem_url &&
+      (Number(p.vendas) || 0) >= MIN_VENDAS &&
+      (p.avaliacao == null || Number(p.avaliacao) >= MIN_NOTA),
+  );
+  // usa os bons; se a categoria vier magra (<2 aprovados), cai no ranqueado geral
+  // pra não perder o post do dia. dedup visual (mesmo produto de vendedores diferentes).
+  const base = bons.length >= 2 ? bons : ranked;
   const escolhidos = dedupVisual(
-    ranked,
+    base,
     (p) => p.imagem_url as string,
     (p) => String(p.titulo),
   ).slice(0, n);
