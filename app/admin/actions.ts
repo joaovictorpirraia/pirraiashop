@@ -1150,18 +1150,57 @@ export async function publicarCarrossel(formData: FormData) {
     const caption = legendaEditada || (c.legenda as string) || "";
     await supabase.from("carrosseis").update({ gancho, legenda: caption }).eq("id", id);
 
+    // Confere que o objeto EXISTE no Storage e é imagem de verdade — é o que o IG
+    // vai buscar. Storage devolve JSON de "não encontrado" quando o criativo falhou;
+    // mandar isso pro IG dá "Only photo or video can be accepted as media type".
+    const imagemOk = async (url: string): Promise<boolean> => {
+      try {
+        const r = await fetch(url, { cache: "no-store" });
+        const ct = r.headers.get("content-type") ?? "";
+        const len = Number(r.headers.get("content-length") ?? "0");
+        return r.ok && ct.startsWith("image/") && len > 1000;
+      } catch {
+        return false;
+      }
+    };
+    // aquece a rota (gera + sobe no Storage) e valida; 2 tentativas p/ vencer soluço
+    const garantirImagem = async (rota: string, obj: string): Promise<boolean> => {
+      for (let i = 0; i < 2; i++) {
+        await fetch(rota, { redirect: "manual", cache: "no-store" }).catch(() => {});
+        if (await imagemOk(obj)) return true;
+      }
+      return false;
+    };
+
     // 1º slide = CAPA (gancho + foto de fundo); depois os criativos dos produtos
     const imageUrls: string[] = [];
-    await fetch(`${base}/api/capa/${id}`, { redirect: "manual", cache: "no-store" }).catch(() => {});
-    imageUrls.push(`${supaUrl}/storage/v1/object/public/criativos/capa-${id}.jpg`);
+    const capaObj = `${supaUrl}/storage/v1/object/public/criativos/capa-${id}.jpg`;
+    if (!(await garantirImagem(`${base}/api/capa/${id}`, capaObj))) {
+      throw new Error("não consegui gerar a capa do carrossel — tenta publicar de novo");
+    }
+    imageUrls.push(capaObj);
+
+    const idsOk: number[] = [];
+    const falhos: number[] = [];
     for (const pid of ids) {
-      await fetch(`${base}/api/criativo/${pid}`, { redirect: "manual", cache: "no-store" }).catch(() => {});
-      imageUrls.push(`${supaUrl}/storage/v1/object/public/criativos/${pid}.jpg`);
+      const obj = `${supaUrl}/storage/v1/object/public/criativos/${pid}.jpg`;
+      if (await garantirImagem(`${base}/api/criativo/${pid}`, obj)) {
+        imageUrls.push(obj);
+        idsOk.push(pid);
+      } else {
+        falhos.push(pid);
+      }
+    }
+    // o IG precisa de 2 a 10 slides; com a capa, exijo capa + pelo menos 2 produtos
+    if (imageUrls.length < 3) {
+      throw new Error(
+        `poucas imagens válidas (capa + ${imageUrls.length - 1} produto(s)). Falharam: ${falhos.join(", ") || "—"}. Tenta de novo.`,
+      );
     }
 
-    // cura os produtos pra vitrine (validade 15 dias) — assim o público acha pelo
-    // nome quando o post sair; some sozinho depois. Idempotente (pula quem já tem link).
-    await curarProdutosParaVitrine(supabase, ids, 15);
+    // cura pra vitrine (validade 15 dias) SÓ os que entraram no post — assim o público
+    // acha pelo nome quando o post sair; some sozinho depois. Idempotente.
+    await curarProdutosParaVitrine(supabase, idsOk, 15);
 
     const { id: mediaId } = await publicarCarrosselIG({ imageUrls, caption });
 
