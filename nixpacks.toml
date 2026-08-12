@@ -1,0 +1,7 @@
+# Adiciona o ffmpeg ao build do EasyPanel (Nixpacks).
+# aptPkgs só ACRESCENTA pacotes de sistema — não toca no setup do Node detectado
+# automaticamente (por isso é seguro, diferente de mexer em nixPkgs).
+# ffmpeg é um binário separado (chamado via child_process), não um módulo nativo
+# do Node — então não corre o risco que o `sharp` deu.
+[phases.setup]
+aptPkgs = ["ffmpeg"]
