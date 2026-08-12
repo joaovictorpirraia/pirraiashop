@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { instagramConfigurado } from "@/lib/instagram";
-import { montarCarrossel, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel, removerDoCarrossel, atualizarGancho, postarStoryAgora, postarReelTeste } from "../actions";
+import { montarCarrossel, montarCarrosselVideo, montarCarrosselAuto, rodarLoopDoDia, publicarCarrossel, descartarCarrossel, removerDoCarrossel, atualizarGancho, postarStoryAgora, postarReelTeste } from "../actions";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { TEMAS } from "@/lib/loop";
 
@@ -14,6 +14,7 @@ interface ProdutoVitrine {
   preco: string | number | null;
   desconto_pct: number | null;
   status?: string;
+  video_url?: string | null;
 }
 
 interface Carrossel {
@@ -24,6 +25,7 @@ interface Carrossel {
   status: string;
   ig_media_id: string | null;
   erro: string | null;
+  tipo?: string;
 }
 
 export default async function InstagramAdmin({
@@ -37,7 +39,7 @@ export default async function InstagramAdmin({
   // produtos da vitrine (pra montar o carrossel) — via links ativos e não pausados
   const { data: linksRaw } = await supabase
     .from("links")
-    .select("produto:produtos!inner(id, titulo, imagem_url, preco, desconto_pct, status)")
+    .select("produto:produtos!inner(id, titulo, imagem_url, preco, desconto_pct, status, video_url)")
     .eq("ativo", true)
     .eq("pausado", false)
     .order("destaque", { ascending: false })
@@ -48,11 +50,13 @@ export default async function InstagramAdmin({
       return Array.isArray(p) ? p[0] : p;
     })
     .filter((p): p is ProdutoVitrine => Boolean(p) && ["curado", "publicado"].includes(p?.status ?? ""));
+  // só os que já têm vídeo processado (pro carrossel de vídeo)
+  const produtosComVideo = produtos.filter((p) => p.video_url);
 
   // carrosséis (rascunhos primeiro, depois publicados/erro recentes)
   const { data: carrosseisRaw } = await supabase
     .from("carrosseis")
-    .select("id, produto_ids, gancho, legenda, status, ig_media_id, erro")
+    .select("id, produto_ids, gancho, legenda, status, ig_media_id, erro, tipo")
     .order("criado_em", { ascending: false })
     .limit(20);
   const carrosseis = (carrosseisRaw ?? []) as Carrossel[];
@@ -219,6 +223,67 @@ export default async function InstagramAdmin({
           </form>
         </section>
 
+        {/* MONTAR CARROSSEL DE VÍDEO */}
+        <section className="rounded-2xl bg-white p-5 shadow-carta">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">Montar carrossel de vídeo</h2>
+              <p className="mt-1 max-w-xl text-xs text-fumo">
+                Marca de 2 a 9 produtos que já têm vídeo. A capa (foto + gancho) entra como 1º slide e cada
+                produto vira um vídeo. Só aparece aqui quem tem vídeo pronto —{" "}
+                <a href="/admin/videos" className="font-semibold text-pirraia hover:underline">
+                  subir vídeos
+                </a>
+                .
+              </p>
+            </div>
+            <span className="rounded-full bg-black/5 px-3 py-1 text-[11px] font-bold text-fumo">
+              {produtosComVideo.length} com vídeo
+            </span>
+          </div>
+          {produtosComVideo.length < 2 ? (
+            <p className="mt-4 rounded-xl border border-black/10 bg-areia/50 px-4 py-3 text-xs text-fumo">
+              Você precisa de pelo menos 2 produtos com vídeo pronto.{" "}
+              <a href="/admin/videos" className="font-semibold text-pirraia hover:underline">
+                Sobe os vídeos aqui.
+              </a>
+            </p>
+          ) : (
+            <form action={montarCarrosselVideo} className="mt-4">
+              <div className="grid max-h-[420px] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 lg:grid-cols-4">
+                {produtosComVideo.map((p) => (
+                  <label
+                    key={p.id}
+                    className="relative cursor-pointer rounded-xl border border-black/10 p-2 transition-colors has-[:checked]:border-pirraia has-[:checked]:ring-2 has-[:checked]:ring-pirraia"
+                  >
+                    <input type="checkbox" name="produtoIds" value={p.id} className="peer sr-only" />
+                    <span className="absolute right-2 top-2 z-10 hidden h-5 w-5 items-center justify-center rounded-full bg-pirraia text-[11px] font-bold text-white peer-checked:flex">
+                      ✓
+                    </span>
+                    <span className="absolute left-2 top-2 z-10 rounded-full bg-black/70 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                      VÍDEO
+                    </span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.imagem_url ?? ""}
+                      alt={p.titulo}
+                      className="aspect-square w-full rounded-lg object-cover"
+                    />
+                    <div className="mt-1.5 line-clamp-2 text-[11px] font-semibold text-tinta">{p.titulo}</div>
+                    <div className="text-[11px] font-bold text-tinta">{brl(p.preco)}</div>
+                  </label>
+                ))}
+              </div>
+              <BotaoSubmit
+                pendingLabel="Montando o carrossel de vídeo…"
+                className="mt-4 rounded-lg bg-tinta px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-pirraia"
+              >
+                Montar carrossel de vídeo
+              </BotaoSubmit>
+            </form>
+          )}
+        </section>
+
         {/* STORIES automáticos */}
         <section className="rounded-2xl bg-white p-5 shadow-carta">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -282,6 +347,11 @@ export default async function InstagramAdmin({
             <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">Rascunhos</h2>
             {rascunhos.map((c) => (
               <div key={c.id} className="rounded-2xl bg-white p-5 shadow-carta">
+                {c.tipo === "video" && (
+                  <div className="mb-3 inline-flex items-center rounded-full bg-tinta px-3 py-1 text-[11px] font-bold text-white">
+                    CARROSSEL DE VÍDEO · capa + vídeos dos produtos
+                  </div>
+                )}
                 <div className="flex flex-wrap items-start gap-3">
                   {/* prévia da CAPA (1º slide) */}
                   <div className="flex flex-col items-center">

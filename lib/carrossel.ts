@@ -118,6 +118,7 @@ export async function selecionarProdutosAuto(
 export async function inserirRascunhoCarrossel(
   supabase: SupabaseClient,
   produtosBrutos: ProdutoCarrossel[],
+  tipo: "imagem" | "video" = "imagem",
 ): Promise<number> {
   // rede de segurança: tira id repetido e duplicado visual (título) de qualquer caminho
   const porId = produtosBrutos.filter((p, i, arr) => arr.findIndex((q) => q.id === p.id) === i);
@@ -140,6 +141,7 @@ export async function inserirRascunhoCarrossel(
       tema_fundo,
       legenda: partes.join("\n\n"),
       status: "rascunho",
+      tipo,
     })
     .select("id")
     .single();
