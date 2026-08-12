@@ -87,12 +87,20 @@ export default async function InstagramAdmin({
           <span className="text-lg font-extrabold tracking-tight text-tinta">
             pirraia<span className="text-pirraia">.</span> <span className="text-fumo">instagram</span>
           </span>
-          <a
-            href="/admin"
-            className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-tinta transition-colors hover:bg-white"
-          >
-            ← Admin
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href="/admin/videos"
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-tinta transition-colors hover:bg-white"
+            >
+              Vídeos
+            </a>
+            <a
+              href="/admin"
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-tinta transition-colors hover:bg-white"
+            >
+              ← Admin
+            </a>
+          </div>
         </div>
       </header>
 
