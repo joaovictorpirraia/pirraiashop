@@ -1,4 +1,3 @@
-#requires -Version 7
 <#
   Baixador de vídeo de produto da Shopee — RODA LOCAL, no seu PC (IP residencial).
   O servidor de produção NÃO consegue fazer isso (a Shopee bloqueia IP de datacenter);
@@ -21,6 +20,11 @@
 #>
 
 $ErrorActionPreference = "Stop"
+# TLS 1.2 (o PowerShell 5.1 usa 1.0 por padrão e a Shopee recusa)
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+# acentos das mensagens saírem certos no console
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+
 $Links = @($args)              # todos os links passados na linha de comando
 $Pasta = "videos-shopee"       # pasta de saída (mude aqui se quiser)
 $ArquivoLinks = "links.txt"    # alternativa: um link por linha nesse arquivo
@@ -51,7 +55,7 @@ foreach ($link in $Links) {
     Write-Host ("-> produto {0} ..." -f $item) -NoNewline
 
     $url = "https://shopee.com.br/product/$shop/$item"
-    $html = (Invoke-WebRequest -Uri $url -Headers @{ "User-Agent" = $ua } -TimeoutSec 30).Content
+    $html = (Invoke-WebRequest -Uri $url -Headers @{ "User-Agent" = $ua } -UseBasicParsing -TimeoutSec 30).Content
 
     # o vídeo principal fica no 1º "video_info_list" do HTML (SSR)
     $idx = $html.IndexOf('"video_info_list":[{')
@@ -62,7 +66,7 @@ foreach ($link in $Links) {
 
     $mp4 = $m.Value
     $dest = Join-Path $Pasta "shopee-$item.mp4"
-    Invoke-WebRequest -Uri $mp4 -Headers @{ "User-Agent" = $ua } -OutFile $dest -TimeoutSec 120
+    Invoke-WebRequest -Uri $mp4 -Headers @{ "User-Agent" = $ua } -UseBasicParsing -OutFile $dest -TimeoutSec 120
     $kb = [Math]::Round((Get-Item $dest).Length / 1KB)
     Write-Host (" OK ({0} KB)  ->  {1}" -f $kb, $dest) -ForegroundColor Green
     $ok++
