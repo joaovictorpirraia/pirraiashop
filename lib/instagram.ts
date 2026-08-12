@@ -179,3 +179,61 @@ export async function publicarCarrossel(opts: {
   });
   return { id: mediaId };
 }
+
+/**
+ * Publica um CARROSSEL MISTO: capa (imagem) + vídeos dos produtos. Graph API:
+ * 1. cria os containers filhos EM PARALELO (a capa como imagem, cada produto como
+ *    VIDEO); 2. espera todos ficarem prontos em paralelo (vídeo processa mais que
+ *    foto — o tempo total é o do vídeo mais lento, não a soma); 3. container CAROUSEL
+ *    com a capa primeiro + legenda; 4. publica. Retorna o id da mídia.
+ * O trabalho pode passar do timeout do proxy — por isso a action que chama grava o
+ * status no banco, e o dono vê "publicado" ao atualizar mesmo se o request cair.
+ */
+export async function publicarCarrosselVideo(opts: {
+  capaUrl: string;
+  videoUrls: string[];
+  caption: string;
+}): Promise<{ id: string }> {
+  const igUserId = process.env.IG_USER_ID;
+  const token = process.env.IG_ACCESS_TOKEN;
+  if (!igUserId || !token) {
+    throw new Error("Instagram não configurado (IG_USER_ID / IG_ACCESS_TOKEN)");
+  }
+  if (opts.videoUrls.length < 1 || opts.videoUrls.length > 9) {
+    throw new Error("carrossel de vídeo precisa de 1 a 9 vídeos (mais a capa)");
+  }
+
+  // 1. containers filhos, TODOS em paralelo: capa (imagem) + cada vídeo
+  const [capaId, ...videoIds] = await Promise.all([
+    graphPost(`${igUserId}/media`, {
+      image_url: opts.capaUrl,
+      is_carousel_item: "true",
+      access_token: token,
+    }),
+    ...opts.videoUrls.map((v) =>
+      graphPost(`${igUserId}/media`, {
+        media_type: "VIDEO",
+        video_url: v,
+        is_carousel_item: "true",
+        access_token: token,
+      }),
+    ),
+  ]);
+
+  // 2. espera todos ficarem FINISHED (em paralelo; vídeo é o gargalo)
+  await Promise.all([capaId, ...videoIds].map((cid) => esperarPronto(cid, token, 40)));
+
+  // 3. container do carrossel (capa é o 1º slide) e publica
+  const carouselId = await graphPost(`${igUserId}/media`, {
+    media_type: "CAROUSEL",
+    children: [capaId, ...videoIds].join(","),
+    caption: opts.caption,
+    access_token: token,
+  });
+  await esperarPronto(carouselId, token, 20);
+  const mediaId = await graphPost(`${igUserId}/media_publish`, {
+    creation_id: carouselId,
+    access_token: token,
+  });
+  return { id: mediaId };
+}

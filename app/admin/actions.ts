@@ -7,7 +7,7 @@ import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes, classificarCategoria, categorizarProdutos } from "@/lib/curadoria";
 import { gerarConteudo, salvarRascunho, type ProdutoParaConteudo } from "@/lib/conteudo";
-import { publicarCarrossel as publicarCarrosselIG, publicarReel, instagramConfigurado } from "@/lib/instagram";
+import { publicarCarrossel as publicarCarrosselIG, publicarCarrosselVideo, publicarReel, instagramConfigurado } from "@/lib/instagram";
 import { inserirRascunhoCarrossel, montarRascunhoAuto, curarProdutosParaVitrine } from "@/lib/carrossel";
 import { rodarLoopDiario } from "@/lib/loop";
 import { postarStoryAuto } from "@/lib/stories";
@@ -1043,6 +1043,40 @@ export async function montarCarrossel(formData: FormData) {
 }
 
 /**
+ * Monta um rascunho de carrossel de VÍDEO com os produtos marcados que já têm vídeo
+ * processado. A capa continua sendo imagem (gancho + fundo); os slides são os vídeos.
+ * A publicação (tipo='video') usa publicarCarrosselVideo.
+ */
+export async function montarCarrosselVideo(formData: FormData) {
+  const ids = formData
+    .getAll("produtoIds")
+    .map((v) => Number(v))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  if (ids.length < 2) redirect("/admin/instagram?erro=" + encodeURIComponent("marca de 2 a 9 produtos com vídeo"));
+  if (ids.length > 9) redirect("/admin/instagram?erro=" + encodeURIComponent("máximo de 9 vídeos (a capa é o 1º slide, total 10)"));
+
+  const supabase = supabaseAdmin();
+  try {
+    const { data: prods } = await supabase
+      .from("produtos")
+      .select("id, titulo, preco, desconto_pct, video_url")
+      .in("id", ids);
+    // preserva a ordem marcada e SÓ entra quem tem vídeo pronto
+    const ordenados = ids
+      .map((id) => (prods ?? []).find((p) => p.id === id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p?.video_url));
+    if (ordenados.length < 2) throw new Error("marca ao menos 2 produtos que já tenham vídeo pronto");
+    await inserirRascunhoCarrossel(supabase, ordenados, "video");
+  } catch (e) {
+    redirect("/admin/instagram?erro=" + encodeURIComponent((e as Error).message));
+  }
+
+  revalidar();
+  redirect("/admin/instagram?ok=montado");
+}
+
+/**
  * Monta um rascunho de carrossel AUTOMÁTICO: a IA escolhe os produtos do dia
  * (temático, sem repetir os postados nos últimos 14 dias), gera capa + legenda e
  * deixa o rascunho pronto pra revisar/publicar. Botão "Montar automático" e o cron.
@@ -1130,7 +1164,7 @@ export async function publicarCarrossel(formData: FormData) {
   try {
     const { data: c } = await supabase
       .from("carrosseis")
-      .select("id, produto_ids, legenda, gancho, status")
+      .select("id, produto_ids, legenda, gancho, status, tipo")
       .eq("id", id)
       .maybeSingle();
     if (!c) throw new Error("carrossel não encontrado");
@@ -1173,37 +1207,55 @@ export async function publicarCarrossel(formData: FormData) {
       return false;
     };
 
-    // 1º slide = CAPA (gancho + foto de fundo); depois os criativos dos produtos
-    const imageUrls: string[] = [];
+    // CAPA (imagem com gancho + fundo) — comum aos dois tipos de carrossel
     const capaObj = `${supaUrl}/storage/v1/object/public/criativos/capa-${id}.jpg`;
     if (!(await garantirImagem(`${base}/api/capa/${id}`, capaObj))) {
       throw new Error("não consegui gerar a capa do carrossel — tenta publicar de novo");
     }
-    imageUrls.push(capaObj);
 
-    const idsOk: number[] = [];
-    const falhos: number[] = [];
-    for (const pid of ids) {
-      const obj = `${supaUrl}/storage/v1/object/public/criativos/${pid}.jpg`;
-      if (await garantirImagem(`${base}/api/criativo/${pid}`, obj)) {
-        imageUrls.push(obj);
-        idsOk.push(pid);
-      } else {
-        falhos.push(pid);
+    let mediaId: string;
+
+    if (c.tipo === "video") {
+      // CARROSSEL DE VÍDEO: capa (imagem) + os vídeos já processados dos produtos
+      const { data: prods } = await supabase.from("produtos").select("id, video_url").in("id", ids);
+      const comVideo = ids
+        .map((pid) => (prods ?? []).find((p) => p.id === pid))
+        .filter((p): p is { id: number; video_url: string } => Boolean(p?.video_url));
+      if (comVideo.length < 1) {
+        throw new Error("nenhum produto marcado tem vídeo pronto — sobe os vídeos em /admin/videos");
       }
+      await curarProdutosParaVitrine(supabase, comVideo.map((p) => p.id), 15);
+      const r = await publicarCarrosselVideo({
+        capaUrl: capaObj,
+        videoUrls: comVideo.map((p) => p.video_url),
+        caption,
+      });
+      mediaId = r.id;
+    } else {
+      // CARROSSEL DE IMAGEM: capa + criativos (gerados) de cada produto
+      const imageUrls: string[] = [capaObj];
+      const idsOk: number[] = [];
+      const falhos: number[] = [];
+      for (const pid of ids) {
+        const obj = `${supaUrl}/storage/v1/object/public/criativos/${pid}.jpg`;
+        if (await garantirImagem(`${base}/api/criativo/${pid}`, obj)) {
+          imageUrls.push(obj);
+          idsOk.push(pid);
+        } else {
+          falhos.push(pid);
+        }
+      }
+      // o IG precisa de 2 a 10 slides; com a capa, exijo capa + pelo menos 2 produtos
+      if (imageUrls.length < 3) {
+        throw new Error(
+          `poucas imagens válidas (capa + ${imageUrls.length - 1} produto(s)). Falharam: ${falhos.join(", ") || "—"}. Tenta de novo.`,
+        );
+      }
+      // cura pra vitrine (validade 15 dias) SÓ os que entraram no post. Idempotente.
+      await curarProdutosParaVitrine(supabase, idsOk, 15);
+      const r = await publicarCarrosselIG({ imageUrls, caption });
+      mediaId = r.id;
     }
-    // o IG precisa de 2 a 10 slides; com a capa, exijo capa + pelo menos 2 produtos
-    if (imageUrls.length < 3) {
-      throw new Error(
-        `poucas imagens válidas (capa + ${imageUrls.length - 1} produto(s)). Falharam: ${falhos.join(", ") || "—"}. Tenta de novo.`,
-      );
-    }
-
-    // cura pra vitrine (validade 15 dias) SÓ os que entraram no post — assim o público
-    // acha pelo nome quando o post sair; some sozinho depois. Idempotente.
-    await curarProdutosParaVitrine(supabase, idsOk, 15);
-
-    const { id: mediaId } = await publicarCarrosselIG({ imageUrls, caption });
 
     await supabase
       .from("carrosseis")
