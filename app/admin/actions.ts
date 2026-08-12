@@ -15,6 +15,7 @@ import { buscarItens } from "@/lib/mercadolivre";
 import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
 import { AliexpressAfiliado, idProdutoAli, paraProdutoAli } from "@/lib/aliexpress";
+import { processarVideoProduto } from "@/lib/video";
 
 /** Instancia o cliente da AliExpress a partir do env; null se faltar credencial. */
 function aliClient(): AliexpressAfiliado | null {
@@ -1324,4 +1325,54 @@ export async function descartarCarrossel(formData: FormData) {
   await supabaseAdmin().from("carrosseis").delete().eq("id", id);
   revalidar();
   redirect("/admin/instagram");
+}
+
+/**
+ * Gera uma URL ASSINADA pro browser subir o vídeo cru DIRETO no Supabase Storage
+ * (sem passar pelo proxy do EasyPanel, que corta upload grande). Server action —
+ * roda no /admin, protegido pelo Basic Auth. Devolve {path, token} pro cliente.
+ */
+export async function assinarUploadVideo(
+  produtoId: number,
+  carimbo: string,
+): Promise<{ ok: boolean; path?: string; token?: string; erro?: string }> {
+  if (!produtoId) return { ok: false, erro: "produto inválido" };
+  try {
+    const supabase = supabaseAdmin();
+    const path = `raw/${produtoId}-${carimbo}.upload`;
+    const { data, error } = await supabase.storage.from("videos").createSignedUploadUrl(path);
+    if (error || !data) throw new Error(error?.message ?? "falha ao assinar upload");
+    return { ok: true, path: data.path, token: data.token };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+/**
+ * Processa (ffmpeg: 4:5 + texto queimado) o vídeo cru que o browser acabou de subir
+ * e grava produtos.video_url. Server action protegida pelo admin. Devolve a URL final.
+ */
+export async function processarVideoUpload(
+  produtoId: number,
+  path: string,
+): Promise<{ ok: boolean; video_url?: string; erro?: string }> {
+  if (!produtoId || !path) return { ok: false, erro: "id/path ausentes" };
+  try {
+    const supabase = supabaseAdmin();
+    const videoUrl = await processarVideoProduto(supabase, produtoId, path);
+    revalidatePath("/admin/videos");
+    return { ok: true, video_url: videoUrl };
+  } catch (e) {
+    return { ok: false, erro: (e as Error).message };
+  }
+}
+
+/** Remove o vídeo de um produto (apaga do Storage e zera video_url). */
+export async function removerVideoProduto(formData: FormData) {
+  const id = Number(formData.get("produtoId"));
+  if (!id) return;
+  const supabase = supabaseAdmin();
+  await supabase.storage.from("videos").remove([`prod-${id}.mp4`]).catch(() => {});
+  await supabase.from("produtos").update({ video_url: null }).eq("id", id);
+  revalidatePath("/admin/videos");
 }
