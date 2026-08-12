@@ -20,3 +20,7 @@ files.zip
 
 # config local do Claude Code
 .claude/settings.local.json
+
+# vídeos baixados da Shopee (script local) e lista de links pessoal
+videos-shopee/
+links.txt
