@@ -17,6 +17,7 @@ import {
   importarPorLink,
   limparExemplos,
   limparFila,
+  verificarPrecos,
 } from "./actions";
 import { CompartilharAdmin } from "@/components/CompartilharAdmin";
 import { CopiarLegenda } from "@/components/CopiarLegenda";
@@ -93,6 +94,8 @@ export default async function Admin({
     limpar?: string;
     fila_limpa?: string;
     ordenar?: string;
+    precos?: string;
+    precos_erro?: string;
   };
 }) {
   const supabase = supabaseAdmin();
@@ -445,6 +448,23 @@ export default async function Admin({
                 : `Falha ao importar da Shopee: ${searchParams.shopee_erro}`}
             </p>
           )}
+          {searchParams.precos != null &&
+            (() => {
+              const [verif, atu, total] = String(searchParams.precos).split("_").map(Number);
+              const faltam = Math.max(0, (total || 0) - (verif || 0));
+              return (
+                <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
+                  Preços: verifiquei {verif || 0} de {total || 0} produtos Shopee, {atu || 0} preço(s)
+                  atualizado(s).
+                  {faltam > 0 ? ` Faltam ~${faltam} — clica "Verificar preços" de novo pra continuar.` : " Vitrine em dia!"}
+                </p>
+              );
+            })()}
+          {searchParams.precos_erro != null && (
+            <p className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
+              Falha ao verificar preços: {searchParams.precos_erro}
+            </p>
+          )}
 
           {searchParams.ali != null && (
             <p className="mb-3 rounded-xl border border-[#E62E04]/20 bg-[#E62E04]/10 px-4 py-2.5 text-sm font-medium text-[#a8250a]">
@@ -517,6 +537,15 @@ export default async function Admin({
                     </BotaoSubmit>
                   </form>
                 )}
+                <form action={verificarPrecos}>
+                  <BotaoSubmit
+                    pendingLabel="Verificando…"
+                    className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-tinta transition-colors hover:bg-white"
+                    title="Consulta a Shopee (por item_id) e atualiza os preços da vitrine que mudaram. Processa 40 por vez (roda de novo se faltar)."
+                  >
+                    Verificar preços
+                  </BotaoSubmit>
+                </form>
               </div>
             )}
           </div>
