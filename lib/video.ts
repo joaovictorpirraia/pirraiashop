@@ -170,12 +170,12 @@ export async function gerarVideoTikTok(
 
   try {
     await writeFile(inp, buf);
-    // quebra o texto do dono em linhas de ~16 chars (fonte grande), até 4 linhas
+    // quebra o texto do dono em linhas de ~18 chars, até 4 linhas
     const palavras = (texto || "").trim().split(/\s+/).filter(Boolean);
     const linhas: string[] = [];
     let atual = "";
     for (const p of palavras) {
-      if ((`${atual} ${p}`).trim().length > 16 && atual) {
+      if ((`${atual} ${p}`).trim().length > 18 && atual) {
         linhas.push(atual);
         atual = p;
       } else {
@@ -185,18 +185,19 @@ export async function gerarVideoTikTok(
     }
     if (atual && linhas.length < 4) linhas.push(atual);
     await writeFile(textoTxt, linhas.join("\n") || " ");
-    const alturaBloco = Math.max(200, linhas.length * 92 + 80);
-    const yBloco = 620;
+    const alturaBloco = Math.max(170, linhas.length * 82 + 60);
+    const yBloco = 640;
 
     const vf = [
       `scale=${TW}:${TH}:force_original_aspect_ratio=increase`,
       `crop=${TW}:${TH}`,
       `setsar=1`,
       // marca d'água no topo (zona segura do TikTok)
-      `drawtext=fontfile='${escFiltro(FONT)}':text='pirraiashop':x=(w-tw)/2:y=130:fontsize=34:fontcolor=white@0.75`,
-      // scrim + texto do dono no meio-alto (longe dos botões à direita e da legenda embaixo)
-      `drawbox=x=0:y=${yBloco - 40}:w=${TW}:h=${alturaBloco}:color=black@0.42:t=fill`,
-      `drawtext=fontfile='${escFiltro(FONT)}':textfile='${escFiltro(textoTxt)}':x=60:y=${yBloco}:fontsize=76:fontcolor=white:line_spacing=14`,
+      `drawtext=fontfile='${escFiltro(FONT)}':text='pirraiashop':x=(w-tw)/2:y=130:fontsize=32:fontcolor=white@0.75`,
+      // tarja mais clara + texto do dono (fonte menor) com sombrinha pra ficar legível
+      // em qualquer vídeo. Meio-alto, longe dos botões à direita e da legenda embaixo.
+      `drawbox=x=0:y=${yBloco - 32}:w=${TW}:h=${alturaBloco}:color=black@0.26:t=fill`,
+      `drawtext=fontfile='${escFiltro(FONT)}':textfile='${escFiltro(textoTxt)}':x=60:y=${yBloco}:fontsize=62:fontcolor=white:line_spacing=12:shadowcolor=black@0.55:shadowx=2:shadowy=2`,
     ].join(",");
 
     await rodarFfmpeg([
