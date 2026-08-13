@@ -14,6 +14,7 @@ export function BotaoSubmit({
   title,
   spinner = true,
   disabled = false,
+  formAction,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -21,11 +22,14 @@ export function BotaoSubmit({
   title?: string;
   spinner?: boolean;
   disabled?: boolean;
+  /** action específica deste botão (pra ter 2+ botões no mesmo form) */
+  formAction?: (formData: FormData) => void | Promise<void>;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
+      formAction={formAction}
       disabled={pending || disabled}
       title={title}
       aria-busy={pending}

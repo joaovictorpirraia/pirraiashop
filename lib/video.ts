@@ -129,9 +129,104 @@ export async function processarVideoProduto(
 
     const publicUrl = supabase.storage.from("videos").getPublicUrl(destino).data.publicUrl;
     await supabase.from("produtos").update({ video_url: publicUrl }).eq("id", produtoId);
-    // limpa o cru (não precisa mais)
+    // GUARDA O ORIGINAL em raw-{id}.mp4 (pra gerar o 9:16 do TikTok com texto limpo),
+    // e limpa o upload temporário com timestamp
+    await supabase.storage.from("videos").upload(`raw-${produtoId}.mp4`, buf, { contentType: "video/mp4", upsert: true }).catch(() => {});
     await supabase.storage.from("videos").remove([rawPath]).catch(() => {});
     return publicUrl;
+  } finally {
+    await limpar();
+  }
+}
+
+/**
+ * Gera o vídeo 9:16 (1080x1920) pro TikTok a partir do ORIGINAL (raw-{id}.mp4),
+ * queimando o TEXTO que o dono digitou (no TikTok Shop o preço difere da Shopee).
+ * Respeita as zonas do TikTok (botões à direita, legenda embaixo): texto no
+ * meio-alto, marca no topo. Guarda em videos/tiktok-{id}.mp4 e grava video_tiktok_url.
+ */
+export async function gerarVideoTikTok(
+  supabase: SupabaseClient,
+  produtoId: number,
+  texto: string,
+): Promise<string> {
+  const TW = 1080;
+  const TH = 1920; // 9:16
+
+  const { data: blob, error: dlErr } = await supabase.storage.from("videos").download(`raw-${produtoId}.mp4`);
+  if (dlErr || !blob) {
+    throw new Error("não achei o vídeo original desse produto — sobe o vídeo de novo em /admin/videos (agora eu guardo o original)");
+  }
+  const buf = Buffer.from(await blob.arrayBuffer());
+
+  const dir = await mkdtemp(join(tmpdir(), "tk-"));
+  const inp = join(dir, "in");
+  const out = join(dir, "out.mp4");
+  const textoTxt = join(dir, "texto.txt");
+  const limpar = async () => {
+    await Promise.all([inp, out, textoTxt].map((f) => unlink(f).catch(() => {})));
+    await rmdir(dir).catch(() => {});
+  };
+
+  try {
+    await writeFile(inp, buf);
+    // quebra o texto do dono em linhas de ~16 chars (fonte grande), até 4 linhas
+    const palavras = (texto || "").trim().split(/\s+/).filter(Boolean);
+    const linhas: string[] = [];
+    let atual = "";
+    for (const p of palavras) {
+      if ((`${atual} ${p}`).trim().length > 16 && atual) {
+        linhas.push(atual);
+        atual = p;
+      } else {
+        atual = (`${atual} ${p}`).trim();
+      }
+      if (linhas.length === 4) break;
+    }
+    if (atual && linhas.length < 4) linhas.push(atual);
+    await writeFile(textoTxt, linhas.join("\n") || " ");
+    const alturaBloco = Math.max(200, linhas.length * 92 + 80);
+    const yBloco = 620;
+
+    const vf = [
+      `scale=${TW}:${TH}:force_original_aspect_ratio=increase`,
+      `crop=${TW}:${TH}`,
+      `setsar=1`,
+      // marca d'água no topo (zona segura do TikTok)
+      `drawtext=fontfile='${escFiltro(FONT)}':text='pirraiashop':x=(w-tw)/2:y=130:fontsize=34:fontcolor=white@0.75`,
+      // scrim + texto do dono no meio-alto (longe dos botões à direita e da legenda embaixo)
+      `drawbox=x=0:y=${yBloco - 40}:w=${TW}:h=${alturaBloco}:color=black@0.42:t=fill`,
+      `drawtext=fontfile='${escFiltro(FONT)}':textfile='${escFiltro(textoTxt)}':x=60:y=${yBloco}:fontsize=76:fontcolor=white:line_spacing=14`,
+    ].join(",");
+
+    await rodarFfmpeg([
+      "-y",
+      "-t", String(MAX_SEG),
+      "-i", inp,
+      "-vf", vf,
+      "-r", "30",
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "23",
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-b:a", "128k",
+      "-movflags", "+faststart",
+      out,
+    ]);
+
+    const final = await readFile(out);
+    const destino = `tiktok-${produtoId}.mp4`;
+    const { error: upErr } = await supabase.storage
+      .from("videos")
+      .upload(destino, final, { contentType: "video/mp4", upsert: true });
+    if (upErr) throw new Error(`falha ao subir o vídeo do TikTok: ${upErr.message}`);
+
+    const publicUrl = supabase.storage.from("videos").getPublicUrl(destino).data.publicUrl;
+    // cache-busting: a URL muda a cada geração pra a prévia não pegar a versão velha
+    const urlComV = `${publicUrl}?v=${final.length}`;
+    await supabase.from("produtos").update({ video_tiktok_url: urlComV }).eq("id", produtoId);
+    return urlComV;
   } finally {
     await limpar();
   }
