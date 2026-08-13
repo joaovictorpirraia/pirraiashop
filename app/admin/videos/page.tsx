@@ -65,7 +65,7 @@ export default async function VideosAdmin({
           {searchParams.tiktok === "conectado"
             ? "TikTok conectado!"
             : searchParams.tiktok === "enviado"
-              ? "Vídeo enviado pro rascunho do TikTok! Abre o app do TikTok e finaliza o post."
+              ? "Vídeo enviado pro TikTok! Pode levar 1-2 min pra o TikTok processar e cair no rascunho (chega uma notificação no app). Se a tela não confirmar mas o vídeo aparecer no app, foi só o tempo do envio — deu certo."
               : searchParams.tiktok === "desconectado"
                 ? "TikTok desconectado."
                 : "Feito."}
