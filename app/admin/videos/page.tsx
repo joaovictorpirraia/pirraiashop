@@ -6,7 +6,7 @@ import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { CopiarTexto } from "@/components/CopiarTexto";
 import { tiktokConfigurado, contaConectada } from "@/lib/tiktok";
 import { instagramConfigurado } from "@/lib/instagram";
-import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok, enviarTodosTikTok, previewTikTok, gerarLegendaTikTok, previewReel, postarReel } from "../actions";
+import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok, enviarTodosTikTok, previewTikTok, gerarLegendaTikTok, previewReel, postarReel, processarVideosPendentes } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +20,7 @@ interface ProdVideo {
   legenda_tiktok: string | null;
   video_reel_url: string | null;
   tiktok_enviado_em: string | null;
+  video_raw_em: string | null;
   status: string;
 }
 
@@ -34,6 +35,8 @@ export default async function VideosAdmin({
     reel?: string;
     reel_preview?: string;
     reel_erro?: string;
+    processados?: string;
+    video_erro?: string;
   };
 }) {
   const supabase = supabaseAdmin();
@@ -43,7 +46,7 @@ export default async function VideosAdmin({
 
   const { data } = await supabase
     .from("links")
-    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, legenda_tiktok, video_reel_url, tiktok_enviado_em, status)")
+    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, legenda_tiktok, video_reel_url, tiktok_enviado_em, video_raw_em, status)")
     .eq("ativo", true)
     .eq("pausado", false)
     .limit(300);
@@ -60,6 +63,8 @@ export default async function VideosAdmin({
   const comVideo = lista.filter((p) => p.video_url).length;
   // preparados pro lote: têm 9:16 pronto e ainda não foram enviados
   const preparados = lista.filter((p) => p.video_tiktok_url && !p.tiktok_enviado_em).length;
+  // pendentes: o script subiu o original mas ainda falta processar o 4:5
+  const pendentes = lista.filter((p) => p.video_raw_em && !p.video_url).length;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -121,6 +126,39 @@ export default async function VideosAdmin({
         <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
           Reel: {searchParams.reel_erro}
         </p>
+      )}
+      {searchParams.processados != null &&
+        (() => {
+          const [ok, err] = String(searchParams.processados).split("_").map(Number);
+          return (
+            <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
+              {ok || 0} vídeo(s) processado(s) (4:5 + texto){err ? ` · ${err} com erro` : ""}.
+              {pendentes > 0 ? ` Ainda faltam ${pendentes} — clica "Processar pendentes" de novo.` : " Tudo processado!"}
+            </p>
+          );
+        })()}
+      {searchParams.video_erro && (
+        <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
+          Vídeo: {searchParams.video_erro}
+        </p>
+      )}
+
+      {/* Vídeos pendentes de processar (subidos pelo script) */}
+      {pendentes > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="text-sm text-amber-800">
+            <span className="font-bold">{pendentes}</span> vídeo(s) subido(s) pelo script esperando
+            processar (vira 4:5 com texto). Processa 8 por vez.
+          </div>
+          <form action={processarVideosPendentes}>
+            <BotaoSubmit
+              pendingLabel="Processando…"
+              className="whitespace-nowrap rounded-full bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700"
+            >
+              Processar pendentes ({pendentes})
+            </BotaoSubmit>
+          </form>
+        </div>
       )}
 
       {/* Barra do TikTok */}
