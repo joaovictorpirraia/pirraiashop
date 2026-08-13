@@ -115,8 +115,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             ACHADINHOS
           </div>
 
-          {/* gancho: palavras em flex-wrap; a palavra-chave (2 palavras) vira pílula laranja */}
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", rowGap: 14, columnGap: 16, maxWidth: 960, flex: 1, alignContent: "center" }}>
+          {/* gancho: palavras em flex-wrap; a palavra-chave (2 palavras) vira pílula laranja.
+              alignContent flex-end joga o texto pra BAIXO (libera o topo da foto). */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", rowGap: 14, columnGap: 16, maxWidth: 960, flex: 1, alignContent: "flex-end", paddingBottom: 40 }}>
             {tokens.map((t, i) =>
               t.pill ? (
                 <div key={i} style={{ display: "flex", background: "linear-gradient(90deg,#ff7a3c,#ee4d2d)", color: "#fff", fontSize: tam, lineHeight: 1, padding: "6px 22px", borderRadius: 18 }}>
