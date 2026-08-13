@@ -1521,7 +1521,13 @@ export async function gerarLegendaTikTok(formData: FormData) {
 
     const c = await gerarConteudo(p as ProdutoParaConteudo, "tiktok");
     if (!c) throw new Error("a IA não devolveu a legenda");
-    const tags = (c.hashtags ?? []).slice(0, 8).map((h) => `#${String(h).replace(/^#/, "")}`).join(" ");
+    // rede de segurança: fora hashtag da marca (o dono não quer pirraia/pirraiashop no TikTok)
+    const tags = (c.hashtags ?? [])
+      .map((h) => String(h).replace(/^#/, "").trim())
+      .filter((h) => h && !/pirraia/i.test(h))
+      .slice(0, 8)
+      .map((h) => `#${h}`)
+      .join(" ");
     const legenda = [c.legenda.trim(), tags].filter(Boolean).join("\n\n");
 
     await supabase.from("produtos").update({ legenda_tiktok: legenda }).eq("id", id);
