@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
+import { CopiarTexto } from "@/components/CopiarTexto";
 
 export const dynamic = "force-dynamic";
 
@@ -166,6 +167,20 @@ export default async function Metricas() {
   const maxCategoria = Math.max(1, ...categorias.map(([, n]) => n));
 
   const topProdutos = links.filter((l) => l.cliques > 0).slice(0, 8);
+
+  // VENCEDORES (7 dias): quem mais puxou clique na última semana — pra boostar no Ads.
+  const baseSite = process.env.NEXT_PUBLIC_SITE_URL || "https://pirraiashop.com.br";
+  const cliques7dPorLink = new Map<number, number>();
+  for (const c of cliques) {
+    if (diaISO(new Date(c.criado_em)) >= seteDias) {
+      cliques7dPorLink.set(c.link_id, (cliques7dPorLink.get(c.link_id) ?? 0) + 1);
+    }
+  }
+  const vencedores = links
+    .map((l) => ({ ...l, c7: cliques7dPorLink.get(l.id) ?? 0 }))
+    .filter((l) => l.c7 > 0)
+    .sort((a, b) => b.c7 - a.c7)
+    .slice(0, 5);
   const semDados = totalGeral === 0;
   const semJanela = cliques.length === 0; // sem cliques nos últimos 30 dias
 
@@ -187,6 +202,41 @@ export default async function Metricas() {
       </header>
 
       <main className="mx-auto max-w-3xl space-y-8 px-5 py-8">
+        {/* VENCEDORES DA SEMANA — pra boostar no Ads */}
+        {vencedores.length > 0 && (
+          <section className="rounded-2xl bg-white p-5 shadow-carta">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">
+              Vencedores <span className="normal-case text-fumo">(7 dias)</span>
+            </h2>
+            <p className="mb-4 mt-1 text-xs text-fumo">
+              Os que mais puxaram clique na semana. Copia o link rastreável e joga no Ads / no story.
+            </p>
+            <div className="space-y-2.5">
+              {vencedores.map((l, i) => (
+                <div key={l.id} className="flex items-center gap-3 rounded-xl border border-black/5 p-2">
+                  <div className="w-5 text-center text-sm font-extrabold text-pirraia">{i + 1}</div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={l.produto.imagem_url ?? ""}
+                    alt=""
+                    className="h-12 w-12 flex-shrink-0 rounded-lg object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="line-clamp-1 text-xs font-semibold text-tinta">{l.produto.titulo}</div>
+                    <div className="text-[11px] text-fumo">
+                      <span className="font-bold text-tinta">{l.c7}</span> clique(s) na semana ·{" "}
+                      {l.cliques} no total
+                    </div>
+                  </div>
+                  <div className="w-40 flex-shrink-0">
+                    <CopiarTexto texto={`${baseSite}/r/${l.slug}`} rotulo="Copiar link" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* VISITANTES NA HOME (únicos) */}
         <section>
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-fumo">
