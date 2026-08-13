@@ -37,6 +37,7 @@ export default async function VideosAdmin({
     reel_erro?: string;
     processados?: string;
     video_erro?: string;
+    filtro?: string;
   };
 }) {
   const supabase = supabaseAdmin();
@@ -65,6 +66,9 @@ export default async function VideosAdmin({
   const preparados = lista.filter((p) => p.video_tiktok_url && !p.tiktok_enviado_em).length;
   // pendentes: o script subiu o original mas ainda falta processar o 4:5
   const pendentes = lista.filter((p) => p.video_raw_em && !p.video_url).length;
+  // filtro da tela: todos ou só os que já têm vídeo pronto
+  const soComVideo = searchParams.filtro === "video";
+  const listaExibida = soComVideo ? lista.filter((p) => p.video_url) : lista;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -78,9 +82,25 @@ export default async function VideosAdmin({
         Sobe um vídeo por produto. O sistema corta pra 4:5 e queima nome + preço + marca.
         Depois é só montar o carrossel de vídeo na tela do Instagram.
       </p>
-      <p className="mb-4 text-xs text-tinta/50">
+      <p className="mb-3 text-xs text-tinta/50">
         {lista.length} produtos na vitrine · {comVideo} com vídeo pronto · MP4/MOV até 100&nbsp;MB.
       </p>
+
+      {/* filtro: todos / só com vídeo */}
+      <div className="mb-4 inline-flex gap-1 rounded-full bg-black/5 p-1 text-xs font-semibold">
+        <Link
+          href="/admin/videos"
+          className={`rounded-full px-3 py-1 transition ${!soComVideo ? "bg-white text-tinta shadow-carta" : "text-fumo hover:text-tinta"}`}
+        >
+          Todos ({lista.length})
+        </Link>
+        <Link
+          href="/admin/videos?filtro=video"
+          className={`rounded-full px-3 py-1 transition ${soComVideo ? "bg-white text-tinta shadow-carta" : "text-fumo hover:text-tinta"}`}
+        >
+          Com vídeo ({comVideo})
+        </Link>
+      </div>
 
       {searchParams.tiktok && (
         <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
@@ -208,7 +228,7 @@ export default async function VideosAdmin({
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-        {lista.map((p) => (
+        {listaExibida.map((p) => (
           <div key={p.id} className="flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-white">
             <div className="relative aspect-square bg-black/5">
               {p.imagem_url && (
@@ -347,9 +367,11 @@ export default async function VideosAdmin({
         ))}
       </div>
 
-      {lista.length === 0 && (
+      {listaExibida.length === 0 && (
         <p className="mt-8 text-center text-sm text-tinta/50">
-          Nenhum produto na vitrine ainda. Publica um carrossel primeiro pra popular a vitrine.
+          {soComVideo
+            ? "Nenhum produto com vídeo ainda. Sobe um vídeo (ou usa o baixador da Shopee)."
+            : "Nenhum produto na vitrine ainda. Publica um carrossel primeiro pra popular a vitrine."}
         </p>
       )}
     </main>
