@@ -3,8 +3,9 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { UploadVideo } from "@/components/UploadVideo";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
+import { CopiarTexto } from "@/components/CopiarTexto";
 import { tiktokConfigurado, contaConectada } from "@/lib/tiktok";
-import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok, previewTikTok } from "../actions";
+import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok, previewTikTok, gerarLegendaTikTok } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +16,14 @@ interface ProdVideo {
   preco: string | number | null;
   video_url: string | null;
   video_tiktok_url: string | null;
+  legenda_tiktok: string | null;
   status: string;
 }
 
 export default async function VideosAdmin({
   searchParams,
 }: {
-  searchParams: { tiktok?: string; tiktok_erro?: string; tiktok_preview?: string };
+  searchParams: { tiktok?: string; tiktok_erro?: string; tiktok_preview?: string; tiktok_legenda?: string };
 }) {
   const supabase = supabaseAdmin();
   const tkOn = tiktokConfigurado();
@@ -29,7 +31,7 @@ export default async function VideosAdmin({
 
   const { data } = await supabase
     .from("links")
-    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, status)")
+    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, legenda_tiktok, status)")
     .eq("ativo", true)
     .eq("pausado", false)
     .limit(300);
@@ -81,6 +83,11 @@ export default async function VideosAdmin({
         <p className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-700">
           Prévia 9:16 gerada! No produto, clica em “ver prévia 9:16” pra assistir. Ajusta o texto e
           gera de novo, ou clica “Enviar TikTok” quando gostar.
+        </p>
+      )}
+      {searchParams.tiktok_legenda && (
+        <p className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-700">
+          Legenda gerada! No produto, clica em “Copiar legenda” e cola no TikTok quando for postar.
         </p>
       )}
 
@@ -174,6 +181,25 @@ export default async function VideosAdmin({
                           </a>
                         )}
                       </form>
+                    )}
+                    {/* legenda pro TikTok (a API de rascunho não pré-preenche → copia+cola) */}
+                    {tkOn && conta && (
+                      <div className="mt-1.5">
+                        {p.legenda_tiktok && <CopiarTexto texto={p.legenda_tiktok} />}
+                        <form action={gerarLegendaTikTok} className="mt-1.5">
+                          <input type="hidden" name="produtoId" value={p.id} />
+                          <BotaoSubmit
+                            pendingLabel="Escrevendo…"
+                            className={
+                              p.legenda_tiktok
+                                ? "w-full text-[11px] font-semibold text-tinta/50 transition hover:text-pirraia"
+                                : "w-full rounded-full border border-black/10 px-2 py-1.5 text-[11px] font-semibold text-tinta transition hover:bg-areia"
+                            }
+                          >
+                            {p.legenda_tiktok ? "regerar legenda" : "Gerar legenda TikTok"}
+                          </BotaoSubmit>
+                        </form>
+                      </div>
                     )}
                     <div className="mt-1 flex items-center gap-2">
                       <a

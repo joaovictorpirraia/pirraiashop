@@ -1501,3 +1501,34 @@ export async function enviarVideoTikTok(formData: FormData) {
   revalidatePath("/admin/videos");
   redirect("/admin/videos?tiktok=enviado");
 }
+
+/**
+ * Gera a legenda estilo TikTok pro produto (a API de rascunho não deixa pré-preencher,
+ * então a gente gera e o dono copia+cola no app). Guarda em produtos.legenda_tiktok.
+ */
+export async function gerarLegendaTikTok(formData: FormData) {
+  const id = Number(formData.get("produtoId"));
+  if (!id) redirect("/admin/videos?tiktok_erro=" + encodeURIComponent("produto inválido"));
+
+  const supabase = supabaseAdmin();
+  try {
+    const { data: p } = await supabase
+      .from("produtos")
+      .select("id, titulo, categoria, preco, preco_antigo, desconto_pct, loja_nome, angulo_ia, tags_ia")
+      .eq("id", id)
+      .maybeSingle();
+    if (!p) throw new Error("produto não encontrado");
+
+    const c = await gerarConteudo(p as ProdutoParaConteudo, "tiktok");
+    if (!c) throw new Error("a IA não devolveu a legenda");
+    const tags = (c.hashtags ?? []).slice(0, 8).map((h) => `#${String(h).replace(/^#/, "")}`).join(" ");
+    const legenda = [c.legenda.trim(), tags].filter(Boolean).join("\n\n");
+
+    await supabase.from("produtos").update({ legenda_tiktok: legenda }).eq("id", id);
+  } catch (e) {
+    redirect("/admin/videos?tiktok_erro=" + encodeURIComponent((e as Error).message));
+  }
+
+  revalidatePath("/admin/videos");
+  redirect(`/admin/videos?tiktok_legenda=${id}`);
+}
