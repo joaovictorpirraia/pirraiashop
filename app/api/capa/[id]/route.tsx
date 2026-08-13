@@ -66,9 +66,25 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   const gancho = String(c.gancho || "achados do dia").trim();
   const palavras = gancho.split(/\s+/).filter(Boolean);
-  const destaque = idxDestaque(palavras);
   const tam = tamGancho(gancho.length);
   const ids = (c.produto_ids as number[]) ?? [];
+
+  // Caixa Alta e baixa (Title Case) — cada palavra com inicial maiúscula
+  const tc = (w: string) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w);
+  // destaca 2 palavras numa pílula só: a palavra-chave + a anterior
+  const idxKey = idxDestaque(palavras);
+  const hStart = Math.max(0, idxKey - 1);
+  const hEnd = idxKey;
+  type Tok = { pill: boolean; texto: string };
+  const tokens: Tok[] = [];
+  for (let i = 0; i < palavras.length; i++) {
+    if (i === hStart) {
+      tokens.push({ pill: true, texto: palavras.slice(hStart, hEnd + 1).map(tc).join(" ") });
+      i = hEnd;
+    } else {
+      tokens.push({ pill: false, texto: tc(palavras[i]) });
+    }
+  }
 
   // fundo lifestyle travado; senão Pexels; senão foto do produto
   let fundo = (c.fundo_url as string) || "";
@@ -99,16 +115,16 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             ACHADINHOS
           </div>
 
-          {/* gancho: palavras em flex-wrap; a palavra-chave vira pílula */}
+          {/* gancho: palavras em flex-wrap; a palavra-chave (2 palavras) vira pílula laranja */}
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", rowGap: 14, columnGap: 16, maxWidth: 960, flex: 1, alignContent: "center" }}>
-            {palavras.map((w, i) =>
-              i === destaque ? (
-                <div key={i} style={{ display: "flex", background: "linear-gradient(90deg,#ff2d87,#8b5cf6)", color: "#fff", fontSize: tam, lineHeight: 1, padding: "6px 22px", borderRadius: 18 }}>
-                  {w}
+            {tokens.map((t, i) =>
+              t.pill ? (
+                <div key={i} style={{ display: "flex", background: "linear-gradient(90deg,#ff7a3c,#ee4d2d)", color: "#fff", fontSize: tam, lineHeight: 1, padding: "6px 22px", borderRadius: 18 }}>
+                  {t.texto}
                 </div>
               ) : (
                 <div key={i} style={{ display: "flex", color: "#fff", fontSize: tam, lineHeight: 1, textShadow: contorno(Math.round(tam / 22)) }}>
-                  {w}
+                  {t.texto}
                 </div>
               ),
             )}
