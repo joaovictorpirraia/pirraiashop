@@ -16,6 +16,7 @@ import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
 import { AliexpressAfiliado, idProdutoAli, paraProdutoAli } from "@/lib/aliexpress";
 import { processarVideoProduto, gerarVideoTikTok, gerarVideoReel } from "@/lib/video";
+import { atualizarPrecosShopee } from "@/lib/precos";
 import { urlAutorizacao, accessTokenValido, enviarInbox } from "@/lib/tiktok";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
@@ -1637,4 +1638,37 @@ export async function postarReel(formData: FormData) {
 
   revalidatePath("/admin/videos");
   redirect("/admin/videos?reel=postado");
+}
+
+/**
+ * Verifica e atualiza os preços dos produtos SHOPEE da vitrine pela API de afiliado
+ * (por item_id). Processa 40 por vez (os mais antigos primeiro); roda de novo pra
+ * cobrir o resto. Botão "Verificar preços" na Vitrine.
+ */
+export async function verificarPrecos() {
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  let destino: string;
+  try {
+    const res = await atualizarPrecosShopee(supabase, 40);
+    await supabase.from("execucoes").insert({
+      job: "precos_shopee",
+      ok: true,
+      itens: res.atualizados,
+      detalhe: {
+        origem: "admin",
+        verificados: res.verificados,
+        atualizados: res.atualizados,
+        naoEncontrados: res.naoEncontrados,
+        totalShopee: res.totalShopee,
+        mudancas: res.mudancas.slice(0, 30),
+      },
+      duracao_ms: Date.now() - inicio,
+    });
+    destino = `/admin?ver=vitrine&precos=${res.verificados}_${res.atualizados}_${res.totalShopee}`;
+  } catch (e) {
+    destino = `/admin?ver=vitrine&precos_erro=${encodeURIComponent((e as Error).message)}`;
+  }
+  revalidar();
+  redirect(destino);
 }
