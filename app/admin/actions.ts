@@ -15,7 +15,7 @@ import { buscarItens } from "@/lib/mercadolivre";
 import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
 import { AliexpressAfiliado, idProdutoAli, paraProdutoAli } from "@/lib/aliexpress";
-import { processarVideoProduto } from "@/lib/video";
+import { processarVideoProduto, gerarVideoTikTok } from "@/lib/video";
 import { urlAutorizacao, accessTokenValido, enviarInbox } from "@/lib/tiktok";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
@@ -1459,8 +1459,27 @@ export async function desconectarTikTok() {
  * Envia o vídeo (já processado) de um produto pro RASCUNHO do TikTok da conta
  * conectada. O dono finaliza/publica no app do TikTok. Renova o token se preciso.
  */
+/** Gera a prévia 9:16 do TikTok com o texto digitado (sem enviar). */
+export async function previewTikTok(formData: FormData) {
+  const id = Number(formData.get("produtoId"));
+  const texto = String(formData.get("texto") ?? "").trim();
+  if (!id) redirect("/admin/videos?tiktok_erro=" + encodeURIComponent("produto inválido"));
+  try {
+    await gerarVideoTikTok(supabaseAdmin(), id, texto);
+  } catch (e) {
+    redirect("/admin/videos?tiktok_erro=" + encodeURIComponent((e as Error).message));
+  }
+  revalidatePath("/admin/videos");
+  redirect(`/admin/videos?tiktok_preview=${id}`);
+}
+
+/**
+ * Gera o vídeo 9:16 com o TEXTO digitado (preço do TikTok, etc.) e envia pro
+ * RASCUNHO do TikTok. O dono finaliza/publica no app. Renova o token se preciso.
+ */
 export async function enviarVideoTikTok(formData: FormData) {
   const id = Number(formData.get("produtoId"));
+  const texto = String(formData.get("texto") ?? "").trim();
   if (!id) redirect("/admin/videos?tiktok_erro=" + encodeURIComponent("produto inválido"));
 
   const supabase = supabaseAdmin();
@@ -1468,11 +1487,10 @@ export async function enviarVideoTikTok(formData: FormData) {
     const token = await accessTokenValido(supabase);
     if (!token) throw new Error("conecta o TikTok primeiro");
 
-    const { data: prod } = await supabase.from("produtos").select("video_url").eq("id", id).maybeSingle();
-    if (!prod?.video_url) throw new Error("esse produto ainda não tem vídeo processado");
-
-    const resp = await fetch(prod.video_url as string, { cache: "no-store" });
-    if (!resp.ok) throw new Error("não consegui baixar o vídeo do Storage");
+    // gera o 9:16 com o texto do dono e envia ESSE (não o 4:5 do Instagram)
+    const videoUrl = await gerarVideoTikTok(supabase, id, texto);
+    const resp = await fetch(videoUrl, { cache: "no-store" });
+    if (!resp.ok) throw new Error("não consegui baixar o vídeo gerado");
     const bytes = Buffer.from(await resp.arrayBuffer());
 
     await enviarInbox(token, bytes);

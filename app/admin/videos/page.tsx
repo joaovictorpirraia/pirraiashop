@@ -4,7 +4,7 @@ import { brl } from "@/lib/format";
 import { UploadVideo } from "@/components/UploadVideo";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { tiktokConfigurado, contaConectada } from "@/lib/tiktok";
-import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok } from "../actions";
+import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok, previewTikTok } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,13 +14,14 @@ interface ProdVideo {
   imagem_url: string | null;
   preco: string | number | null;
   video_url: string | null;
+  video_tiktok_url: string | null;
   status: string;
 }
 
 export default async function VideosAdmin({
   searchParams,
 }: {
-  searchParams: { tiktok?: string; tiktok_erro?: string };
+  searchParams: { tiktok?: string; tiktok_erro?: string; tiktok_preview?: string };
 }) {
   const supabase = supabaseAdmin();
   const tkOn = tiktokConfigurado();
@@ -28,7 +29,7 @@ export default async function VideosAdmin({
 
   const { data } = await supabase
     .from("links")
-    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, status)")
+    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, status)")
     .eq("ativo", true)
     .eq("pausado", false)
     .limit(300);
@@ -74,6 +75,12 @@ export default async function VideosAdmin({
       {searchParams.tiktok_erro && (
         <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
           TikTok: {searchParams.tiktok_erro}
+        </p>
+      )}
+      {searchParams.tiktok_preview && (
+        <p className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-700">
+          Prévia 9:16 gerada! No produto, clica em “ver prévia 9:16” pra assistir. Ajusta o texto e
+          gera de novo, ou clica “Enviar TikTok” quando gostar.
         </p>
       )}
 
@@ -132,14 +139,40 @@ export default async function VideosAdmin({
                 {p.video_url && (
                   <>
                     {tkOn && conta && (
-                      <form action={enviarVideoTikTok} className="mt-1.5">
+                      <form className="mt-2 space-y-1.5">
                         <input type="hidden" name="produtoId" value={p.id} />
-                        <BotaoSubmit
-                          pendingLabel="Enviando…"
-                          className="w-full rounded-full bg-[#000] px-3 py-1.5 text-[11px] font-bold text-white transition hover:opacity-80"
-                        >
-                          Enviar pro TikTok
-                        </BotaoSubmit>
+                        <input
+                          name="texto"
+                          defaultValue={brl(Number(p.preco))}
+                          placeholder="texto na tela (ex: preço do TikTok)"
+                          className="w-full rounded-lg border border-black/10 px-2 py-1 text-[11px] text-tinta outline-none focus:border-pirraia"
+                        />
+                        <div className="flex gap-1.5">
+                          <BotaoSubmit
+                            formAction={previewTikTok}
+                            pendingLabel="Gerando…"
+                            className="flex-1 rounded-full border border-black/10 px-2 py-1.5 text-[11px] font-semibold text-tinta transition hover:bg-areia"
+                          >
+                            Prévia 9:16
+                          </BotaoSubmit>
+                          <BotaoSubmit
+                            formAction={enviarVideoTikTok}
+                            pendingLabel="Enviando…"
+                            className="flex-1 rounded-full bg-[#000] px-2 py-1.5 text-[11px] font-bold text-white transition hover:opacity-80"
+                          >
+                            Enviar TikTok
+                          </BotaoSubmit>
+                        </div>
+                        {p.video_tiktok_url && (
+                          <a
+                            href={p.video_tiktok_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-center text-[11px] font-semibold text-pirraia hover:underline"
+                          >
+                            ver prévia 9:16 ↗
+                          </a>
+                        )}
                       </form>
                     )}
                     <div className="mt-1 flex items-center gap-2">
