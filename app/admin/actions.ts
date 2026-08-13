@@ -1748,3 +1748,35 @@ export async function importarLinksEmMassa(formData: FormData) {
   revalidar();
   redirect(`/admin?ver=vitrine&massa=${importados}_${falhas}`);
 }
+
+/**
+ * Processa em lote os vídeos que o script subiu (raw-{id}.mp4, video_raw_em setado)
+ * e ainda não têm o 4:5 pronto (video_url null). Gera o 4:5 (com texto) de cada um.
+ * 8 por vez (ffmpeg é pesado); roda de novo pra cobrir o resto.
+ */
+export async function processarVideosPendentes() {
+  const supabase = supabaseAdmin();
+  let processados = 0;
+  let erros = 0;
+  try {
+    const { data: pend } = await supabase
+      .from("produtos")
+      .select("id")
+      .not("video_raw_em", "is", null)
+      .is("video_url", null)
+      .order("video_raw_em", { ascending: true })
+      .limit(8);
+    for (const p of pend ?? []) {
+      try {
+        await processarVideoProduto(supabase, p.id as number, `raw-${p.id}.mp4`);
+        processados++;
+      } catch {
+        erros++;
+      }
+    }
+  } catch (e) {
+    redirect("/admin/videos?video_erro=" + encodeURIComponent((e as Error).message));
+  }
+  revalidatePath("/admin/videos");
+  redirect(`/admin/videos?processados=${processados}_${erros}`);
+}

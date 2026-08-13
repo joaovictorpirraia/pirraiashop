@@ -130,9 +130,13 @@ export async function processarVideoProduto(
     const publicUrl = supabase.storage.from("videos").getPublicUrl(destino).data.publicUrl;
     await supabase.from("produtos").update({ video_url: publicUrl }).eq("id", produtoId);
     // GUARDA O ORIGINAL em raw-{id}.mp4 (pra gerar o 9:16 do TikTok com texto limpo),
-    // e limpa o upload temporário com timestamp
-    await supabase.storage.from("videos").upload(`raw-${produtoId}.mp4`, buf, { contentType: "video/mp4", upsert: true }).catch(() => {});
-    await supabase.storage.from("videos").remove([rawPath]).catch(() => {});
+    // e limpa o upload temporário com timestamp — MAS não apaga se o rawPath JÁ é o
+    // raw estável (caso do "processar pendentes", que processa direto de raw-{id}.mp4).
+    const rawEstavel = `raw-${produtoId}.mp4`;
+    if (rawPath !== rawEstavel) {
+      await supabase.storage.from("videos").upload(rawEstavel, buf, { contentType: "video/mp4", upsert: true }).catch(() => {});
+      await supabase.storage.from("videos").remove([rawPath]).catch(() => {});
+    }
     return publicUrl;
   } finally {
     await limpar();

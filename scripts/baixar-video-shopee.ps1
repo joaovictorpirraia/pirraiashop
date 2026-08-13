@@ -4,48 +4,49 @@
   por isso e um script pra rodar na sua maquina.
 
   Ele raspa o HTML da pagina do produto (que traz a URL do video embutida), baixa o
-  .mp4 do CDN da Shopee, e CASA pelo item_id com o produto da sua vitrine pra nomear
-  o arquivo com o NOME do produto (le a URL/chave publica do .env.local). Depois e so
-  arrastar os videos em /admin/videos.
+  .mp4 do CDN da Shopee, casa pelo item_id com o produto da vitrine e:
+    - nomeia o arquivo pelo nome do produto (pasta videos-shopee/), E
+    - se achar a service role no .env.local, SOBE o video pro sistema (raw-{id}.mp4)
+      e marca como pendente. Ai no admin (/admin/videos) e so clicar "Processar
+      pendentes" pra virar 4:5 -- sem arrastar nada.
 
   COMO USAR (no PowerShell, dentro da pasta do projeto):
-    # um ou varios links direto:
     .\scripts\baixar-video-shopee.ps1 "https://shopee.com.br/...i.SHOP.ITEM" "https://..."
-
-    # ou poe os links num arquivo links.txt (um por linha) e roda sem argumentos:
+    # ou poe os links num links.txt (um por linha) e roda sem argumentos:
     .\scripts\baixar-video-shopee.ps1
-
-  Os .mp4 caem na pasta "videos-shopee". Se o produto nao estiver na vitrine (curado),
-  o arquivo fica com o item_id (shopee-<item>.mp4).
 
   AVISO: isso e raspagem (contra os termos da Shopee) e e fragil - se eles mudarem o
   HTML, quebra. Uso por sua conta, pro seu proprio material de afiliado.
 #>
 
 $ErrorActionPreference = "Stop"
-# TLS 1.2 (o PowerShell 5.1 usa 1.0 por padrao e a Shopee recusa)
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
 
-$Links = @($args)              # todos os links passados na linha de comando
-$Pasta = "videos-shopee"       # pasta de saida (mude aqui se quiser)
-$ArquivoLinks = "links.txt"    # alternativa: um link por linha nesse arquivo
+$Links = @($args)
+$Pasta = "videos-shopee"
+$ArquivoLinks = "links.txt"
 $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 
-# ---- le a URL/chave publica do .env.local (pra casar item_id -> nome do produto) ----
-$supaUrl = $null; $anon = $null
+# ---- le URL + chaves do .env.local (anon pra casar; service pra subir o video) ----
+$supaUrl = $null; $anon = $null; $service = $null
 if (Test-Path ".env.local") {
   Get-Content ".env.local" | ForEach-Object {
     if ($_ -match '^\s*NEXT_PUBLIC_SUPABASE_URL\s*=\s*(.+?)\s*$') { $supaUrl = $Matches[1].Trim('"').Trim("'") }
     if ($_ -match '^\s*NEXT_PUBLIC_SUPABASE_ANON_KEY\s*=\s*(.+?)\s*$') { $anon = $Matches[1].Trim('"').Trim("'") }
+    if ($_ -match '^\s*SUPABASE_SERVICE_ROLE_KEY\s*=\s*(.+?)\s*$') { $service = $Matches[1].Trim('"').Trim("'") }
   }
 }
-$temBase = [bool]$supaUrl -and [bool]$anon
+$chaveLeitura = if ($service) { $service } else { $anon }   # service le tudo; anon so vitrine
+$temBase = [bool]$supaUrl -and [bool]$chaveLeitura
+$temUpload = [bool]$supaUrl -and [bool]$service
 if (-not $temBase) {
-  Write-Host "(sem .env.local com URL/anon - os arquivos vao ficar com o item_id no nome)" -ForegroundColor DarkYellow
+  Write-Host "(sem .env.local com URL/chave - os arquivos vao ficar com o item_id no nome)" -ForegroundColor DarkYellow
+}
+if ($temBase -and -not $temUpload) {
+  Write-Host "(sem service role no .env.local - so baixa; nao sobe pro sistema)" -ForegroundColor DarkYellow
 }
 
-# transforma o titulo do produto num nome de arquivo limpo (sem acento/simbolo)
 function Get-Slug([string]$s) {
   if (-not $s) { return $null }
   $norm = $s.Normalize([Text.NormalizationForm]::FormD)
@@ -61,19 +62,30 @@ function Get-Slug([string]$s) {
   return $t
 }
 
-# consulta o titulo do produto na vitrine (anon key so le curado/publicado - RLS)
-function Get-TituloProduto([string]$item) {
+# acha o produto pelo item_id -> devolve @{ id; titulo } (ou $null)
+function Get-Produto([string]$item) {
   if (-not $temBase) { return $null }
   try {
-    $u = "$supaUrl/rest/v1/produtos?item_id=eq.$item&select=titulo&limit=1"
-    $r = Invoke-RestMethod -Uri $u -Headers @{ apikey = $anon; Authorization = "Bearer $anon" } -TimeoutSec 20
-    if ($r -and @($r).Count -ge 1) { return $r[0].titulo }
+    $u = "$supaUrl/rest/v1/produtos?item_id=eq.$item&select=id,titulo&limit=1"
+    $r = Invoke-RestMethod -Uri $u -Headers @{ apikey = $chaveLeitura; Authorization = "Bearer $chaveLeitura" } -TimeoutSec 20
+    if ($r -and @($r).Count -ge 1) { return @{ id = $r[0].id; titulo = $r[0].titulo } }
   }
   catch {}
   return $null
 }
 
-# junta links dos argumentos + do links.txt (se existir), tira comentarios e repetidos
+# sobe o video como raw-{id}.mp4 e marca video_raw_em (pra "Processar pendentes")
+function Push-Video([int]$id, [string]$arquivo) {
+  $up = "$supaUrl/storage/v1/object/videos/raw-$id.mp4"
+  Invoke-WebRequest -Uri $up -Method Post -InFile $arquivo -ContentType "video/mp4" `
+    -Headers @{ apikey = $service; Authorization = "Bearer $service"; "x-upsert" = "true" } `
+    -UseBasicParsing -TimeoutSec 300 | Out-Null
+  $patch = "$supaUrl/rest/v1/produtos?id=eq.$id"
+  $body = @{ video_raw_em = (Get-Date).ToUniversalTime().ToString("o"); video_url = $null } | ConvertTo-Json
+  Invoke-RestMethod -Uri $patch -Method Patch -Body $body -TimeoutSec 20 `
+    -Headers @{ apikey = $service; Authorization = "Bearer $service"; "Content-Type" = "application/json"; Prefer = "return=minimal" } | Out-Null
+}
+
 if (Test-Path $ArquivoLinks) {
   $Links += Get-Content $ArquivoLinks | Where-Object { $_.Trim() -ne "" -and -not $_.Trim().StartsWith("#") }
 }
@@ -81,12 +93,12 @@ $Links = $Links | Where-Object { $_ -match "shopee" } | Select-Object -Unique
 
 if (-not $Links) {
   Write-Host "Nenhum link da Shopee informado." -ForegroundColor Yellow
-  Write-Host 'Uso: .\scripts\baixar-video-shopee.ps1 "<link1>" "<link2>"   (ou poe os links em links.txt, um por linha)' -ForegroundColor Yellow
+  Write-Host 'Uso: .\scripts\baixar-video-shopee.ps1 "<link1>" "<link2>"   (ou poe os links em links.txt)' -ForegroundColor Yellow
   exit 1
 }
 
 New-Item -ItemType Directory -Force -Path $Pasta | Out-Null
-$ok = 0; $falha = 0
+$ok = 0; $falha = 0; $subidos = 0
 
 foreach ($link in $Links) {
   try {
@@ -96,17 +108,15 @@ foreach ($link in $Links) {
     }
     $shop = $Matches[1]; $item = $Matches[2]
 
-    # casa com o produto da vitrine pra nomear pelo nome
-    $titulo = Get-TituloProduto $item
-    $slug = Get-Slug $titulo
+    $prod = Get-Produto $item
+    $slug = if ($prod) { Get-Slug $prod.titulo } else { $null }
     $nomeArq = if ($slug) { "$slug.mp4" } else { "shopee-$item.mp4" }
-    $rotulo = if ($titulo) { $titulo } else { "produto $item (fora da vitrine)" }
+    $rotulo = if ($prod) { $prod.titulo } else { "produto $item (fora da vitrine)" }
     Write-Host ("-> {0} ..." -f $rotulo) -NoNewline
 
     $url = "https://shopee.com.br/product/$shop/$item"
     $html = (Invoke-WebRequest -Uri $url -Headers @{ "User-Agent" = $ua } -UseBasicParsing -TimeoutSec 30).Content
 
-    # o video principal fica no 1o "video_info_list" do HTML (SSR)
     $idx = $html.IndexOf('"video_info_list":[{')
     if ($idx -lt 0) { Write-Host " sem video nesse produto" -ForegroundColor Yellow; $falha++; continue }
     $janela = $html.Substring($idx, [Math]::Min(3000, $html.Length - $idx))
@@ -117,8 +127,22 @@ foreach ($link in $Links) {
     $dest = Join-Path $Pasta $nomeArq
     Invoke-WebRequest -Uri $mp4 -Headers @{ "User-Agent" = $ua } -UseBasicParsing -OutFile $dest -TimeoutSec 120
     $kb = [Math]::Round((Get-Item $dest).Length / 1KB)
-    Write-Host (" OK ({0} KB)  ->  {1}" -f $kb, $nomeArq) -ForegroundColor Green
+    Write-Host (" OK ({0} KB)" -f $kb) -NoNewline -ForegroundColor Green
     $ok++
+
+    if ($temUpload -and $prod) {
+      try {
+        Push-Video ([int]$prod.id) $dest
+        Write-Host "  -> subido pro sistema (pendente)" -ForegroundColor Green
+        $subidos++
+      }
+      catch {
+        Write-Host ("  -> baixou, mas falhou ao subir: {0}" -f $_.Exception.Message) -ForegroundColor Yellow
+      }
+    }
+    else {
+      Write-Host ""
+    }
   }
   catch {
     Write-Host (" ERRO: {0}" -f $_.Exception.Message) -ForegroundColor Red
@@ -127,7 +151,10 @@ foreach ($link in $Links) {
 }
 
 Write-Host ""
-Write-Host ("Pronto: {0} baixado(s), {1} falha(s).  Pasta: {2}" -f $ok, $falha, (Resolve-Path $Pasta)) -ForegroundColor Cyan
-if ($ok -gt 0) {
-  Write-Host "O nome do arquivo e o nome do produto - mais facil de casar em /admin/videos." -ForegroundColor Cyan
+Write-Host ("Pronto: {0} baixado(s), {1} subido(s) pro sistema, {2} falha(s)." -f $ok, $subidos, $falha) -ForegroundColor Cyan
+if ($subidos -gt 0) {
+  Write-Host "Agora vai em /admin/videos e clica 'Processar pendentes' (vira 4:5, 8 por vez)." -ForegroundColor Cyan
+}
+elseif ($ok -gt 0) {
+  Write-Host "Arquivos em $Pasta (nomeados pelo produto). Arrasta em /admin/videos." -ForegroundColor Cyan
 }
