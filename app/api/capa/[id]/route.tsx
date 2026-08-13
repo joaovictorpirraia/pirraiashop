@@ -12,27 +12,48 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Capa do carrossel (1º slide) — a que segura o scroll: foto de fundo + scrim
- * escuro + GANCHO grande na frente (ex.: "COISAS DE CASA QUE PARECEM CARAS").
- * O gancho vem do registro do carrossel (IA, editável). Fundo = foto do 1º produto.
+ * Capa do carrossel (1º slide) — a que segura o scroll. Estilo achadinho: FOTO VIVA
+ * (sem tarja escura), gancho grande com CONTORNO (legível em qualquer foto) e a
+ * palavra-chave destacada numa PÍLULA colorida (marca-texto). Fonte Poppins (moderna).
+ * Fundo = foto lifestyle do Pexels (por tema) travada, senão a foto do 1º produto.
  * Gera JPEG (next/og PNG → pngjs+jpeg-js) no bucket "criativos" como capa-<id>.jpg.
  */
 const FONT_DIR = join(process.cwd(), "app", "api", "og");
-const fonteRegular = readFileSync(join(FONT_DIR, "OpenSans-Regular.ttf"));
-const fonteBold = readFileSync(join(FONT_DIR, "OpenSans-ExtraBold.ttf"));
+const poppins = readFileSync(join(FONT_DIR, "Poppins-ExtraBold.ttf"));
+const openSans = readFileSync(join(FONT_DIR, "OpenSans-Regular.ttf"));
 
-/** Tamanho da fonte do gancho conforme o comprimento (não tem auto-fit no Satori). */
+/** Contorno escuro (8 direções) pra o texto branco ler em qualquer foto — sem tarja. */
+const COR_CONTORNO = "rgba(18,14,12,0.92)";
+function contorno(px: number): string {
+  const c = COR_CONTORNO;
+  return [
+    `${px}px 0 0 ${c}`, `-${px}px 0 0 ${c}`, `0 ${px}px 0 ${c}`, `0 -${px}px 0 ${c}`,
+    `${px}px ${px}px 0 ${c}`, `-${px}px -${px}px 0 ${c}`, `${px}px -${px}px 0 ${c}`, `-${px}px ${px}px 0 ${c}`,
+  ].join(", ");
+}
+
+/** Tamanho do gancho conforme o comprimento (Satori não tem auto-fit). */
 function tamGancho(n: number): number {
-  if (n <= 24) return 104;
-  if (n <= 40) return 86;
-  if (n <= 58) return 72;
-  return 60;
+  if (n <= 22) return 108;
+  if (n <= 38) return 90;
+  if (n <= 56) return 74;
+  return 62;
+}
+
+/** Índice da palavra a destacar: keyword forte, senão a última palavra significativa. */
+function idxDestaque(palavras: string[]): number {
+  const limpa = (w: string) => w.replace(/[^\p{L}]/gu, "");
+  const kw = palavras.findIndex((w) => /shopee|achadinh|barat|gr[aá]tis|descont|promo|viral/i.test(limpa(w)));
+  if (kw >= 0) return kw;
+  for (let i = palavras.length - 1; i >= 0; i--) {
+    if (limpa(palavras[i]).length > 3) return i;
+  }
+  return palavras.length - 1;
 }
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   const id = Number(params.id);
   if (!id) return new NextResponse("id inválido", { status: 400 });
-  // ?preview=1: devolve os bytes na hora (sem gravar no Storage) pra prévia do admin
   const preview = new URL(req.url).searchParams.has("preview");
 
   const supabase = supabaseAdmin();
@@ -43,10 +64,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     .maybeSingle();
   if (!c) return new NextResponse("carrossel não encontrado", { status: 404 });
 
-  const gancho = (String(c.gancho || "achados do dia")).toUpperCase();
+  const gancho = String(c.gancho || "achados do dia").trim();
+  const palavras = gancho.split(/\s+/).filter(Boolean);
+  const destaque = idxDestaque(palavras);
+  const tam = tamGancho(gancho.length);
   const ids = (c.produto_ids as number[]) ?? [];
 
-  // fundo lifestyle: usa o travado; senão busca no Pexels e trava; senão foto do produto
+  // fundo lifestyle travado; senão Pexels; senão foto do produto
   let fundo = (c.fundo_url as string) || "";
   if (!fundo) {
     const escolhido = await buscarFundoPexels(String(c.tema_fundo || ""));
@@ -62,130 +86,67 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   const resp = new ImageResponse(
     (
-      <div
-        style={{
-          display: "flex",
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          background: "#2b2320",
-          fontFamily: "Open Sans",
-        }}
-      >
+      <div style={{ display: "flex", position: "relative", width: "100%", height: "100%", background: "#241d1a", fontFamily: "Poppins" }}>
         {fundo && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={fundo}
-            width={1080}
-            height={1350}
-            style={{ position: "absolute", top: 0, left: 0, objectFit: "cover" }}
-            alt=""
-          />
+          <img src={fundo} width={1080} height={1350} style={{ position: "absolute", top: 0, left: 0, objectFit: "cover" }} alt="" />
         )}
-        {/* scrim escuro pro texto pop */}
-        <div
-          style={{
-            display: "flex",
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 1080,
-            height: 1350,
-            background: "linear-gradient(180deg, rgba(15,12,10,0.62) 0%, rgba(15,12,10,0.5) 45%, rgba(15,12,10,0.78) 100%)",
-          }}
-        />
-        {/* conteúdo */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            alignItems: "center",
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 1080,
-            height: 1350,
-            padding: "72px 66px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              background: "#e11d74",
-              color: "#fff",
-              fontSize: 30,
-              fontWeight: 900,
-              letterSpacing: 3,
-              padding: "12px 30px",
-              borderRadius: 999,
-            }}
-          >
+
+        {/* conteúdo — SEM tarja escura; legibilidade vem do contorno do texto */}
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center", position: "absolute", top: 0, left: 0, width: 1080, height: 1350, padding: "70px 60px" }}>
+          {/* selo da marca */}
+          <div style={{ display: "flex", background: "linear-gradient(90deg,#e11d74,#7c3aed)", color: "#fff", fontSize: 27, letterSpacing: 3, padding: "11px 28px", borderRadius: 999 }}>
             ACHADINHOS
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              flex: 1,
-              width: "100%",
-            }}
-          >
-            <div
-              style={{
-                fontSize: tamGancho(gancho.length),
-                fontWeight: 800,
-                color: "#fff",
-                textAlign: "center",
-                lineHeight: 1.12,
-                maxWidth: 940,
-              }}
-            >
-              {gancho}
-            </div>
+          {/* gancho: palavras em flex-wrap; a palavra-chave vira pílula */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", rowGap: 14, columnGap: 16, maxWidth: 960, flex: 1, alignContent: "center" }}>
+            {palavras.map((w, i) =>
+              i === destaque ? (
+                <div key={i} style={{ display: "flex", background: "linear-gradient(90deg,#ff2d87,#8b5cf6)", color: "#fff", fontSize: tam, lineHeight: 1, padding: "6px 22px", borderRadius: 18 }}>
+                  {w}
+                </div>
+              ) : (
+                <div key={i} style={{ display: "flex", color: "#fff", fontSize: tam, lineHeight: 1, textShadow: contorno(Math.round(tam / 22)) }}>
+                  {w}
+                </div>
+              ),
+            )}
           </div>
 
+          {/* CTA */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <div style={{ display: "flex", fontSize: 36, fontWeight: 900, color: "#fff" }}>
-              arrasta pro lado →
-            </div>
-            <div style={{ display: "flex", fontSize: 24, fontWeight: 700, color: "#ffffffcc", marginTop: 10 }}>
+            <div style={{ display: "flex", fontSize: 38, color: "#fff", textShadow: contorno(2) }}>arrasta pro lado →</div>
+            <div style={{ display: "flex", fontFamily: "Open Sans", fontSize: 24, color: "#fff", marginTop: 10, textShadow: contorno(2) }}>
               pirraiashop.com.br
             </div>
           </div>
         </div>
       </div>
     ),
-    { width: 1080, height: 1350, fonts: [
-      { name: "Open Sans", data: fonteRegular, weight: 400, style: "normal" },
-      { name: "Open Sans", data: fonteBold, weight: 800, style: "normal" },
-    ] },
+    {
+      width: 1080,
+      height: 1350,
+      fonts: [
+        { name: "Poppins", data: poppins, weight: 800, style: "normal" },
+        { name: "Open Sans", data: openSans, weight: 400, style: "normal" },
+      ],
+    },
   );
 
   const png = PNG.sync.read(Buffer.from(await resp.arrayBuffer()));
   const bytes = encodeJpeg({ data: png.data, width: png.width, height: png.height }, 82).data;
 
-  // prévia do admin: devolve os bytes na hora (fresco, sem tocar no Storage)
   if (preview) {
-    return new NextResponse(bytes, {
-      headers: { "content-type": "image/jpeg", "cache-control": "no-store" },
-    });
+    return new NextResponse(bytes, { headers: { "content-type": "image/jpeg", "cache-control": "no-store" } });
   }
 
   const caminho = `capa-${id}.jpg`;
   const publicUrl = supabase.storage.from("criativos").getPublicUrl(caminho).data.publicUrl;
   try {
-    await supabase.storage.from("criativos").upload(caminho, bytes, {
-      contentType: "image/jpeg",
-      upsert: true,
-    });
+    await supabase.storage.from("criativos").upload(caminho, bytes, { contentType: "image/jpeg", upsert: true });
     return NextResponse.redirect(publicUrl, 302);
   } catch {
-    return new NextResponse(bytes, {
-      headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=3600" },
-    });
+    return new NextResponse(bytes, { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=3600" } });
   }
 }
