@@ -6,7 +6,7 @@ import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { CopiarTexto } from "@/components/CopiarTexto";
 import { tiktokConfigurado, contaConectada } from "@/lib/tiktok";
 import { instagramConfigurado } from "@/lib/instagram";
-import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok, previewTikTok, gerarLegendaTikTok, previewReel, postarReel } from "../actions";
+import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok, enviarTodosTikTok, previewTikTok, gerarLegendaTikTok, previewReel, postarReel } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,7 @@ interface ProdVideo {
   video_tiktok_url: string | null;
   legenda_tiktok: string | null;
   video_reel_url: string | null;
+  tiktok_enviado_em: string | null;
   status: string;
 }
 
@@ -42,7 +43,7 @@ export default async function VideosAdmin({
 
   const { data } = await supabase
     .from("links")
-    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, legenda_tiktok, video_reel_url, status)")
+    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, legenda_tiktok, video_reel_url, tiktok_enviado_em, status)")
     .eq("ativo", true)
     .eq("pausado", false)
     .limit(300);
@@ -57,6 +58,8 @@ export default async function VideosAdmin({
     .filter((p) => (vistos.has(p.id) ? false : vistos.add(p.id)));
 
   const comVideo = lista.filter((p) => p.video_url).length;
+  // preparados pro lote: têm 9:16 pronto e ainda não foram enviados
+  const preparados = lista.filter((p) => p.video_tiktok_url && !p.tiktok_enviado_em).length;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -82,7 +85,9 @@ export default async function VideosAdmin({
               ? "Vídeo enviado pro TikTok! Pode levar 1-2 min pra o TikTok processar e cair no rascunho (chega uma notificação no app). Se a tela não confirmar mas o vídeo aparecer no app, foi só o tempo do envio — deu certo."
               : searchParams.tiktok === "desconectado"
                 ? "TikTok desconectado."
-                : "Feito."}
+                : searchParams.tiktok.startsWith("lote_")
+                  ? `${searchParams.tiktok.replace("lote_", "")} vídeo(s) enviado(s) pro rascunho do TikTok! Pode levar 1-2 min pra cada aparecer no app.`
+                  : "Feito."}
         </p>
       )}
       {searchParams.tiktok_erro && (
@@ -143,11 +148,24 @@ export default async function VideosAdmin({
           </form>
         )}
         {tkOn && conta && (
-          <form action={desconectarTikTok}>
-            <button type="submit" className="text-xs font-semibold text-tinta/50 hover:text-red-600">
-              desconectar
-            </button>
-          </form>
+          <div className="flex items-center gap-3">
+            {preparados > 0 && (
+              <form action={enviarTodosTikTok}>
+                <BotaoSubmit
+                  pendingLabel="Enviando lote…"
+                  title="Envia pro rascunho do TikTok todos os que já têm 9:16 pronto e ainda não foram enviados (até 6 por vez)."
+                  className="whitespace-nowrap rounded-full bg-[#000] px-4 py-2 text-xs font-bold text-white transition hover:opacity-80"
+                >
+                  Enviar preparados ({preparados})
+                </BotaoSubmit>
+              </form>
+            )}
+            <form action={desconectarTikTok}>
+              <button type="submit" className="text-xs font-semibold text-tinta/50 hover:text-red-600">
+                desconectar
+              </button>
+            </form>
+          </div>
         )}
       </div>
 

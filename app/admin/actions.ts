@@ -1494,12 +1494,53 @@ export async function enviarVideoTikTok(formData: FormData) {
     const bytes = Buffer.from(await resp.arrayBuffer());
 
     await enviarInbox(token, bytes);
+    await supabase.from("produtos").update({ tiktok_enviado_em: new Date().toISOString() }).eq("id", id);
   } catch (e) {
     redirect("/admin/videos?tiktok_erro=" + encodeURIComponent((e as Error).message));
   }
 
   revalidatePath("/admin/videos");
   redirect("/admin/videos?tiktok=enviado");
+}
+
+/**
+ * Envia EM LOTE pro rascunho do TikTok todos os produtos que já têm o 9:16 pronto
+ * (video_tiktok_url) e ainda não foram enviados. Cap de 6 por vez (limite de 6
+ * init/min por token do TikTok). Cada um respeita o texto que já foi gerado na prévia.
+ */
+export async function enviarTodosTikTok() {
+  const supabase = supabaseAdmin();
+  let enviados = 0;
+  try {
+    const token = await accessTokenValido(supabase);
+    if (!token) throw new Error("conecta o TikTok primeiro");
+
+    const { data } = await supabase
+      .from("produtos")
+      .select("id, video_tiktok_url")
+      .not("video_tiktok_url", "is", null)
+      .is("tiktok_enviado_em", null)
+      .limit(6);
+
+    for (const p of data ?? []) {
+      if (!p.video_tiktok_url) continue;
+      try {
+        const resp = await fetch(p.video_tiktok_url as string, { cache: "no-store" });
+        if (!resp.ok) continue;
+        const bytes = Buffer.from(await resp.arrayBuffer());
+        await enviarInbox(token, bytes);
+        await supabase.from("produtos").update({ tiktok_enviado_em: new Date().toISOString() }).eq("id", p.id);
+        enviados++;
+      } catch {
+        /* pula o que falhar; segue o lote */
+      }
+    }
+  } catch (e) {
+    redirect("/admin/videos?tiktok_erro=" + encodeURIComponent((e as Error).message));
+  }
+
+  revalidatePath("/admin/videos");
+  redirect(`/admin/videos?tiktok=lote_${enviados}`);
 }
 
 /**
