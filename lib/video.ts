@@ -232,3 +232,87 @@ export async function gerarVideoTikTok(
     await limpar();
   }
 }
+
+/**
+ * Gera o vídeo 9:16 (1080x1920) pro REEL do Instagram a partir do ORIGINAL
+ * (raw-{id}.mp4): nome + PREÇO DA SHOPEE + "link na bio" (no IG o link vai na bio,
+ * e o preço é o da Shopee). Zonas seguras do Reel (botões à direita, legenda/áudio
+ * embaixo). Guarda em videos/reel-{id}.mp4 e grava video_reel_url.
+ */
+export async function gerarVideoReel(
+  supabase: SupabaseClient,
+  produtoId: number,
+): Promise<string> {
+  const RW = 1080;
+  const RH = 1920; // 9:16
+
+  const { data: p } = await supabase.from("produtos").select("titulo, preco").eq("id", produtoId).maybeSingle();
+  if (!p) throw new Error("produto não encontrado");
+
+  const { data: blob, error: dlErr } = await supabase.storage.from("videos").download(`raw-${produtoId}.mp4`);
+  if (dlErr || !blob) {
+    throw new Error("não achei o vídeo original desse produto — sobe o vídeo de novo em /admin/videos (agora eu guardo o original)");
+  }
+  const buf = Buffer.from(await blob.arrayBuffer());
+
+  const dir = await mkdtemp(join(tmpdir(), "reel-"));
+  const inp = join(dir, "in");
+  const out = join(dir, "out.mp4");
+  const tituloTxt = join(dir, "titulo.txt");
+  const precoTxt = join(dir, "preco.txt");
+  const limpar = async () => {
+    await Promise.all([inp, out, tituloTxt, precoTxt].map((f) => unlink(f).catch(() => {})));
+    await rmdir(dir).catch(() => {});
+  };
+
+  try {
+    await writeFile(inp, buf);
+    await writeFile(tituloTxt, quebrarTitulo(String(p.titulo)));
+    await writeFile(precoTxt, brl(Number(p.preco)));
+
+    const vf = [
+      `scale=${RW}:${RH}:force_original_aspect_ratio=increase`,
+      `crop=${RW}:${RH}`,
+      `setsar=1`,
+      // marca d'água no topo
+      `drawtext=fontfile='${escFiltro(FONT)}':text='pirraiashop':x=(w-tw)/2:y=130:fontsize=32:fontcolor=white@0.75`,
+      // nome no alto (scrim leve + sombra)
+      `drawbox=x=0:y=210:w=${RW}:h=240:color=black@0.28:t=fill`,
+      `drawtext=fontfile='${escFiltro(FONT)}':textfile='${escFiltro(tituloTxt)}':x=60:y=240:fontsize=54:fontcolor=white:line_spacing=12:shadowcolor=black@0.55:shadowx=2:shadowy=2`,
+      // preço + CTA no meio-baixo (acima da zona de legenda/áudio do Reel)
+      `drawbox=x=0:y=1140:w=${RW}:h=250:color=black@0.30:t=fill`,
+      `drawtext=fontfile='${escFiltro(FONT)}':textfile='${escFiltro(precoTxt)}':x=60:y=1180:fontsize=104:fontcolor=white:shadowcolor=black@0.55:shadowx=2:shadowy=2`,
+      `drawtext=fontfile='${escFiltro(FONT)}':text='link na bio':x=60:y=1320:fontsize=40:fontcolor=0xff8fc4`,
+    ].join(",");
+
+    await rodarFfmpeg([
+      "-y",
+      "-t", String(MAX_SEG),
+      "-i", inp,
+      "-vf", vf,
+      "-r", "30",
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "23",
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-b:a", "128k",
+      "-movflags", "+faststart",
+      out,
+    ]);
+
+    const final = await readFile(out);
+    const destino = `reel-${produtoId}.mp4`;
+    const { error: upErr } = await supabase.storage
+      .from("videos")
+      .upload(destino, final, { contentType: "video/mp4", upsert: true });
+    if (upErr) throw new Error(`falha ao subir o vídeo do Reel: ${upErr.message}`);
+
+    const publicUrl = supabase.storage.from("videos").getPublicUrl(destino).data.publicUrl;
+    const urlComV = `${publicUrl}?v=${final.length}`;
+    await supabase.from("produtos").update({ video_reel_url: urlComV }).eq("id", produtoId);
+    return urlComV;
+  } finally {
+    await limpar();
+  }
+}

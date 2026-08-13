@@ -5,7 +5,8 @@ import { UploadVideo } from "@/components/UploadVideo";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { CopiarTexto } from "@/components/CopiarTexto";
 import { tiktokConfigurado, contaConectada } from "@/lib/tiktok";
-import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok, previewTikTok, gerarLegendaTikTok } from "../actions";
+import { instagramConfigurado } from "@/lib/instagram";
+import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok, previewTikTok, gerarLegendaTikTok, previewReel, postarReel } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,21 +18,31 @@ interface ProdVideo {
   video_url: string | null;
   video_tiktok_url: string | null;
   legenda_tiktok: string | null;
+  video_reel_url: string | null;
   status: string;
 }
 
 export default async function VideosAdmin({
   searchParams,
 }: {
-  searchParams: { tiktok?: string; tiktok_erro?: string; tiktok_preview?: string; tiktok_legenda?: string };
+  searchParams: {
+    tiktok?: string;
+    tiktok_erro?: string;
+    tiktok_preview?: string;
+    tiktok_legenda?: string;
+    reel?: string;
+    reel_preview?: string;
+    reel_erro?: string;
+  };
 }) {
   const supabase = supabaseAdmin();
   const tkOn = tiktokConfigurado();
   const conta = tkOn ? await contaConectada(supabase) : null;
+  const igOn = instagramConfigurado();
 
   const { data } = await supabase
     .from("links")
-    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, legenda_tiktok, status)")
+    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, legenda_tiktok, video_reel_url, status)")
     .eq("ativo", true)
     .eq("pausado", false)
     .limit(300);
@@ -88,6 +99,22 @@ export default async function VideosAdmin({
       {searchParams.tiktok_legenda && (
         <p className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-medium text-sky-700">
           Legenda gerada! No produto, clica em “Copiar legenda” e cola no TikTok quando for postar.
+        </p>
+      )}
+      {searchParams.reel && (
+        <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
+          Reel publicado no Instagram! Pode levar 1-2 min pra processar e aparecer no perfil.
+        </p>
+      )}
+      {searchParams.reel_preview && (
+        <p className="mb-4 rounded-xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-2.5 text-sm font-medium text-fuchsia-700">
+          Prévia do Reel gerada! Clica em “ver prévia Reel” no produto. Gostou? “Postar Reel” manda pro
+          Instagram (vai público na hora).
+        </p>
+      )}
+      {searchParams.reel_erro && (
+        <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
+          Reel: {searchParams.reel_erro}
         </p>
       )}
 
@@ -200,6 +227,39 @@ export default async function VideosAdmin({
                           </BotaoSubmit>
                         </form>
                       </div>
+                    )}
+                    {/* Reel no Instagram (9:16 com preço Shopee + link na bio) — vai público na hora */}
+                    {igOn && (
+                      <form className="mt-1.5 space-y-1.5 border-t border-black/5 pt-2">
+                        <input type="hidden" name="produtoId" value={p.id} />
+                        <div className="flex gap-1.5">
+                          <BotaoSubmit
+                            formAction={previewReel}
+                            pendingLabel="Gerando…"
+                            className="flex-1 rounded-full border border-black/10 px-2 py-1.5 text-[11px] font-semibold text-tinta transition hover:bg-areia"
+                          >
+                            Prévia Reel
+                          </BotaoSubmit>
+                          <BotaoSubmit
+                            formAction={postarReel}
+                            pendingLabel="Postando…"
+                            title="Publica o Reel no Instagram AGORA (vai público na hora)"
+                            className="flex-1 rounded-full bg-gradient-to-r from-[#C13584] to-[#F56040] px-2 py-1.5 text-[11px] font-bold text-white transition hover:opacity-90"
+                          >
+                            Postar Reel
+                          </BotaoSubmit>
+                        </div>
+                        {p.video_reel_url && (
+                          <a
+                            href={p.video_reel_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-center text-[11px] font-semibold text-pirraia hover:underline"
+                          >
+                            ver prévia Reel ↗
+                          </a>
+                        )}
+                      </form>
                     )}
                     <div className="mt-1 flex items-center gap-2">
                       <a

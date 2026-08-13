@@ -15,7 +15,7 @@ import { buscarItens } from "@/lib/mercadolivre";
 import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
 import { AliexpressAfiliado, idProdutoAli, paraProdutoAli } from "@/lib/aliexpress";
-import { processarVideoProduto, gerarVideoTikTok } from "@/lib/video";
+import { processarVideoProduto, gerarVideoTikTok, gerarVideoReel } from "@/lib/video";
 import { urlAutorizacao, accessTokenValido, enviarInbox } from "@/lib/tiktok";
 import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
@@ -1537,4 +1537,63 @@ export async function gerarLegendaTikTok(formData: FormData) {
 
   revalidatePath("/admin/videos");
   redirect(`/admin/videos?tiktok_legenda=${id}`);
+}
+
+/** Gera a prévia 9:16 do Reel (nome + preço Shopee + link na bio), sem postar. */
+export async function previewReel(formData: FormData) {
+  const id = Number(formData.get("produtoId"));
+  if (!id) redirect("/admin/videos?reel_erro=" + encodeURIComponent("produto inválido"));
+  try {
+    await gerarVideoReel(supabaseAdmin(), id);
+  } catch (e) {
+    redirect("/admin/videos?reel_erro=" + encodeURIComponent((e as Error).message));
+  }
+  revalidatePath("/admin/videos");
+  redirect(`/admin/videos?reel_preview=${id}`);
+}
+
+/**
+ * Posta um REEL no Instagram (vídeo 9:16 do produto) com legenda automática e cura o
+ * produto na vitrine (pra o "link na bio" achar pelo nome). ATENÇÃO: Reel vai PÚBLICO
+ * na hora (não é rascunho). Renova nada — usa IG_USER_ID/TOKEN.
+ */
+export async function postarReel(formData: FormData) {
+  const id = Number(formData.get("produtoId"));
+  if (!id) redirect("/admin/videos?reel_erro=" + encodeURIComponent("produto inválido"));
+
+  const supabase = supabaseAdmin();
+  try {
+    if (!instagramConfigurado()) throw new Error("Instagram não configurado no servidor");
+
+    // vídeo 9:16 do Reel
+    const videoUrl = await gerarVideoReel(supabase, id);
+
+    // legenda (IA, canal feed) + hashtags
+    const { data: p } = await supabase
+      .from("produtos")
+      .select("id, titulo, categoria, preco, preco_antigo, desconto_pct, loja_nome, angulo_ia, tags_ia")
+      .eq("id", id)
+      .maybeSingle();
+    if (!p) throw new Error("produto não encontrado");
+    let caption = "";
+    try {
+      const c = await gerarConteudo(p as ProdutoParaConteudo, "instagram_feed");
+      if (c) {
+        const tags = (c.hashtags ?? []).slice(0, 10).map((h) => `#${String(h).replace(/^#/, "")}`).join(" ");
+        caption = [c.legenda.trim(), tags].filter(Boolean).join("\n\n");
+      }
+    } catch {
+      /* legenda é opcional — se a IA falhar, posta sem */
+    }
+
+    // cura pra vitrine (15 dias) pra o link na bio achar pelo nome quando o Reel sair
+    await curarProdutosParaVitrine(supabase, [id], 15);
+
+    await publicarReel({ videoUrl, caption });
+  } catch (e) {
+    redirect("/admin/videos?reel_erro=" + encodeURIComponent((e as Error).message));
+  }
+
+  revalidatePath("/admin/videos");
+  redirect("/admin/videos?reel=postado");
 }
