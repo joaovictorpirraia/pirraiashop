@@ -6,7 +6,7 @@ import { useState } from "react";
  * Mostra um texto já pronto e um botão pra copiar. Usado pra legenda do TikTok (a
  * API de rascunho não deixa pré-preencher, então o dono copia daqui e cola no app).
  */
-export function CopiarTexto({ texto }: { texto: string }) {
+export function CopiarTexto({ texto, rotulo = "Copiar legenda" }: { texto: string; rotulo?: string }) {
   const [copiado, setCopiado] = useState(false);
 
   async function copiar() {
@@ -29,7 +29,7 @@ export function CopiarTexto({ texto }: { texto: string }) {
         onClick={copiar}
         className="mt-1.5 w-full rounded-full bg-pirraia px-2 py-1 text-[11px] font-bold text-white transition hover:opacity-90"
       >
-        {copiado ? "Copiado!" : "Copiar legenda"}
+        {copiado ? "Copiado!" : rotulo}
       </button>
     </div>
   );
