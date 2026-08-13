@@ -2,7 +2,9 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
 import { brl } from "@/lib/format";
 import { UploadVideo } from "@/components/UploadVideo";
-import { removerVideoProduto } from "../actions";
+import { BotaoSubmit } from "@/components/BotaoSubmit";
+import { tiktokConfigurado, contaConectada } from "@/lib/tiktok";
+import { removerVideoProduto, conectarTikTok, desconectarTikTok, enviarVideoTikTok } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +17,15 @@ interface ProdVideo {
   status: string;
 }
 
-export default async function VideosAdmin() {
+export default async function VideosAdmin({
+  searchParams,
+}: {
+  searchParams: { tiktok?: string; tiktok_erro?: string };
+}) {
   const supabase = supabaseAdmin();
+  const tkOn = tiktokConfigurado();
+  const conta = tkOn ? await contaConectada(supabase) : null;
+
   const { data } = await supabase
     .from("links")
     .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, status)")
@@ -47,9 +56,59 @@ export default async function VideosAdmin() {
         Sobe um vídeo por produto. O sistema corta pra 4:5 e queima nome + preço + marca.
         Depois é só montar o carrossel de vídeo na tela do Instagram.
       </p>
-      <p className="mb-6 text-xs text-tinta/50">
+      <p className="mb-4 text-xs text-tinta/50">
         {lista.length} produtos na vitrine · {comVideo} com vídeo pronto · MP4/MOV até 100&nbsp;MB.
       </p>
+
+      {searchParams.tiktok && (
+        <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
+          {searchParams.tiktok === "conectado"
+            ? "TikTok conectado!"
+            : searchParams.tiktok === "enviado"
+              ? "Vídeo enviado pro rascunho do TikTok! Abre o app do TikTok e finaliza o post."
+              : searchParams.tiktok === "desconectado"
+                ? "TikTok desconectado."
+                : "Feito."}
+        </p>
+      )}
+      {searchParams.tiktok_erro && (
+        <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
+          TikTok: {searchParams.tiktok_erro}
+        </p>
+      )}
+
+      {/* Barra do TikTok */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3">
+        <div className="text-sm">
+          <span className="font-bold text-tinta">TikTok</span>
+          <span className="text-tinta/60">
+            {" "}
+            —{" "}
+            {!tkOn
+              ? "não configurado no servidor (falta TIKTOK_CLIENT_KEY/SECRET)"
+              : conta
+                ? `conectado como ${conta.display_name}. Envia o vídeo pro rascunho e finaliza no app.`
+                : "conecta tua conta pra enviar vídeos como rascunho."}
+          </span>
+        </div>
+        {tkOn && !conta && (
+          <form action={conectarTikTok}>
+            <BotaoSubmit
+              pendingLabel="Abrindo o TikTok…"
+              className="whitespace-nowrap rounded-full bg-tinta px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-pirraia"
+            >
+              Conectar TikTok
+            </BotaoSubmit>
+          </form>
+        )}
+        {tkOn && conta && (
+          <form action={desconectarTikTok}>
+            <button type="submit" className="text-xs font-semibold text-tinta/50 hover:text-red-600">
+              desconectar
+            </button>
+          </form>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
         {lista.map((p) => (
@@ -71,22 +130,35 @@ export default async function VideosAdmin() {
               <div className="mt-auto">
                 <UploadVideo produtoId={p.id} temVideo={Boolean(p.video_url)} />
                 {p.video_url && (
-                  <div className="mt-1 flex items-center gap-2">
-                    <a
-                      href={p.video_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] font-semibold text-pirraia hover:underline"
-                    >
-                      ver
-                    </a>
-                    <form action={removerVideoProduto}>
-                      <input type="hidden" name="produtoId" value={p.id} />
-                      <button type="submit" className="text-[11px] text-tinta/50 hover:text-red-600">
-                        remover
-                      </button>
-                    </form>
-                  </div>
+                  <>
+                    {tkOn && conta && (
+                      <form action={enviarVideoTikTok} className="mt-1.5">
+                        <input type="hidden" name="produtoId" value={p.id} />
+                        <BotaoSubmit
+                          pendingLabel="Enviando…"
+                          className="w-full rounded-full bg-[#000] px-3 py-1.5 text-[11px] font-bold text-white transition hover:opacity-80"
+                        >
+                          Enviar pro TikTok
+                        </BotaoSubmit>
+                      </form>
+                    )}
+                    <div className="mt-1 flex items-center gap-2">
+                      <a
+                        href={p.video_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] font-semibold text-pirraia hover:underline"
+                      >
+                        ver
+                      </a>
+                      <form action={removerVideoProduto}>
+                        <input type="hidden" name="produtoId" value={p.id} />
+                        <button type="submit" className="text-[11px] text-tinta/50 hover:text-red-600">
+                          remover
+                        </button>
+                      </form>
+                    </div>
+                  </>
                 )}
               </div>
             </div>

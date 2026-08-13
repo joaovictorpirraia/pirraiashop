@@ -16,6 +16,9 @@ import { ingerirItensML, ingerirOfertas, ingerirItensAli } from "@/lib/ingest";
 import { ShopeeAffiliate, paraProduto } from "@/lib/shopee";
 import { AliexpressAfiliado, idProdutoAli, paraProdutoAli } from "@/lib/aliexpress";
 import { processarVideoProduto } from "@/lib/video";
+import { urlAutorizacao, accessTokenValido, enviarInbox } from "@/lib/tiktok";
+import { cookies } from "next/headers";
+import { randomUUID } from "node:crypto";
 
 /** Instancia o cliente da AliExpress a partir do env; null se faltar credencial. */
 function aliClient(): AliexpressAfiliado | null {
@@ -1427,4 +1430,56 @@ export async function removerVideoProduto(formData: FormData) {
   await supabase.storage.from("videos").remove([`prod-${id}.mp4`]).catch(() => {});
   await supabase.from("produtos").update({ video_url: null }).eq("id", id);
   revalidatePath("/admin/videos");
+}
+
+/**
+ * Inicia o OAuth do TikTok: gera um state (anti-CSRF), guarda num cookie e manda o
+ * dono pra tela de autorização do TikTok. Server action (roda no /admin, protegido).
+ */
+export async function conectarTikTok() {
+  const state = randomUUID();
+  cookies().set("tiktok_oauth_state", state, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600,
+  });
+  redirect(urlAutorizacao(state));
+}
+
+/** Desconecta o TikTok (apaga o token guardado). */
+export async function desconectarTikTok() {
+  await supabaseAdmin().from("tiktok_auth").delete().neq("id", 0);
+  revalidatePath("/admin/videos");
+  redirect("/admin/videos?tiktok=desconectado");
+}
+
+/**
+ * Envia o vídeo (já processado) de um produto pro RASCUNHO do TikTok da conta
+ * conectada. O dono finaliza/publica no app do TikTok. Renova o token se preciso.
+ */
+export async function enviarVideoTikTok(formData: FormData) {
+  const id = Number(formData.get("produtoId"));
+  if (!id) redirect("/admin/videos?tiktok_erro=" + encodeURIComponent("produto inválido"));
+
+  const supabase = supabaseAdmin();
+  try {
+    const token = await accessTokenValido(supabase);
+    if (!token) throw new Error("conecta o TikTok primeiro");
+
+    const { data: prod } = await supabase.from("produtos").select("video_url").eq("id", id).maybeSingle();
+    if (!prod?.video_url) throw new Error("esse produto ainda não tem vídeo processado");
+
+    const resp = await fetch(prod.video_url as string, { cache: "no-store" });
+    if (!resp.ok) throw new Error("não consegui baixar o vídeo do Storage");
+    const bytes = Buffer.from(await resp.arrayBuffer());
+
+    await enviarInbox(token, bytes);
+  } catch (e) {
+    redirect("/admin/videos?tiktok_erro=" + encodeURIComponent((e as Error).message));
+  }
+
+  revalidatePath("/admin/videos");
+  redirect("/admin/videos?tiktok=enviado");
 }
