@@ -15,6 +15,7 @@ import {
   importarShopee,
   importarAliexpress,
   importarPorLink,
+  importarLinksEmMassa,
   limparExemplos,
   limparFila,
   verificarPrecos,
@@ -89,6 +90,7 @@ export default async function Admin({
     ali_erro?: string;
     imp?: string;
     imp_erro?: string;
+    massa?: string;
     ver?: string;
     q?: string;
     limpar?: string;
@@ -250,6 +252,45 @@ export default async function Admin({
             Mercado Livre não entra por link (eles bloqueiam o servidor) — use o bookmarklet
             <span className="font-semibold text-tinta"> Pirraia ML</span> com o Compartilhar aberto.
           </p>
+
+          {/* IMPORTAR VÁRIOS de uma vez (Shopee) */}
+          <details className="mt-3 rounded-xl border border-black/10 bg-white p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-tinta">
+              Importar vários da Shopee de uma vez
+            </summary>
+            <form action={importarLinksEmMassa} className="mt-3 flex flex-col gap-2">
+              <textarea
+                name="links"
+                required
+                rows={6}
+                placeholder={"cola um link da Shopee por linha…\nhttps://shopee.com.br/...i.SHOP.ITEM\nhttps://s.shopee.com.br/..."}
+                className="w-full resize-y rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia"
+              />
+              <BotaoSubmit
+                pendingLabel="Importando tudo… (pode demorar)"
+                className="self-start rounded-lg bg-[#EE4D2D] px-5 py-2 text-sm font-bold text-white transition hover:brightness-95"
+                title="Puxa cada produto pela API de afiliado e joga na vitrine, já com o link de afiliado. Depois é só rodar o baixador de vídeo."
+              >
+                Importar todos pra vitrine
+              </BotaoSubmit>
+              <p className="text-xs text-fumo">
+                Até 60 por vez. Depois, pega os vídeos com o script{" "}
+                <span className="font-semibold text-tinta">baixar-video-shopee.ps1</span> (os mesmos links).
+              </p>
+            </form>
+          </details>
+
+          {searchParams.massa != null &&
+            (() => {
+              const [imp, fal] = String(searchParams.massa).split("_").map(Number);
+              return (
+                <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
+                  Importados pra vitrine: {imp || 0}
+                  {fal ? ` · ${fal} falharam (link inválido ou fora do programa de afiliado)` : ""}. Agora
+                  roda o baixador de vídeo com os mesmos links.
+                </p>
+              );
+            })()}
           {searchParams.imp != null && (
             <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
               Importado pra vitrine: {searchParams.imp}

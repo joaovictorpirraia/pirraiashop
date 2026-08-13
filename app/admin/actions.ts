@@ -1672,3 +1672,79 @@ export async function verificarPrecos() {
   revalidar();
   redirect(destino);
 }
+
+/** Extrai o item_id de um link Shopee (URL direta) ou resolve o short link seguindo o redirect. */
+async function resolverItemIdShopee(link: string): Promise<number | null> {
+  const pega = (u: string) =>
+    u.match(/-i\.(\d+)\.(\d+)/) || u.match(/\/product\/(\d+)\/(\d+)/) || u.match(/\/(\d{6,})\/(\d{6,})(?:[/?#]|$)/);
+  let m = pega(link);
+  if (m) return Number(m[2]);
+  // short link (s.shopee...) → segue o redirect pra achar o item na URL final
+  try {
+    const r = await fetch(link, { redirect: "follow", headers: { "user-agent": "Mozilla/5.0" } });
+    m = pega(r.url);
+    if (m) return Number(m[2]);
+  } catch {
+    /* redirect bloqueado */
+  }
+  return null;
+}
+
+/**
+ * Importa EM MASSA vários links Shopee (um por linha) direto pra vitrine, via API de
+ * afiliado (por item_id → título/preço/imagem + link de afiliado rastreável). Reusa a
+ * mesma curadoria direta do "importar por link". Depois é só rodar o baixador de vídeo.
+ */
+export async function importarLinksEmMassa(formData: FormData) {
+  const raw = String(formData.get("links") ?? "");
+  const links = raw
+    .split(/[\n\r]+/)
+    .map((s) => s.trim())
+    .filter((s) => /shopee\.com|s\.shopee/i.test(s));
+  if (!links.length) {
+    redirect("/admin?imp_erro=" + encodeURIComponent("cole ao menos um link da Shopee (um por linha)"));
+  }
+
+  const appId = process.env.SHOPEE_APP_ID;
+  const secret = process.env.SHOPEE_SECRET;
+  if (!appId || !secret) {
+    redirect("/admin?imp_erro=" + encodeURIComponent("Shopee não configurada no servidor"));
+  }
+
+  const supabase = supabaseAdmin();
+  const shopee = new ShopeeAffiliate({ appId: appId!, secret: secret! });
+  const inicio = Date.now();
+  let importados = 0;
+  let falhas = 0;
+
+  for (const link of links.slice(0, 60)) {
+    try {
+      const itemId = await resolverItemIdShopee(link);
+      if (!itemId) {
+        falhas++;
+        continue;
+      }
+      const pg = await shopee.buscarOfertas({ itemId, limit: 1 });
+      const oferta = pg.nodes[0];
+      if (!oferta) {
+        falhas++;
+        continue;
+      }
+      await curarLinhaDireta(supabase, paraProduto(oferta));
+      importados++;
+    } catch {
+      falhas++;
+    }
+    await new Promise((r) => setTimeout(r, 200)); // throttle (rate limit Shopee)
+  }
+
+  await supabase.from("execucoes").insert({
+    job: "importar_massa",
+    ok: true,
+    itens: importados,
+    detalhe: { origem: "admin", total: links.length, importados, falhas },
+    duracao_ms: Date.now() - inicio,
+  });
+  revalidar();
+  redirect(`/admin?ver=vitrine&massa=${importados}_${falhas}`);
+}
