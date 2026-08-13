@@ -56,9 +56,9 @@ Formato: STORY do Instagram (vertical, rápido).
 - roteiro: 2 a 3 telas de story (uma por linha) com o que aparece; a última com CTA "arrasta pra cima / link na bio".`;
     case "tiktok":
       return `${BASE}
-Formato: TikTok.
-- legenda: caption estilo TikTok, curta, gancho forte na 1ª frase; CTA pro link na bio.
-- hashtags: 4 a 8, misturando nicho e trends de TikTok (ex.: achadosdatiktok, tiktokmefezcomprar).
+Formato: TikTok (o produto está no TikTok Shop, comprável ali mesmo).
+- legenda: caption estilo TikTok, curta, focada NO PRODUTO, gancho forte na 1ª frase. NÃO fale em "link na bio" (não existe no TikTok). Termine com CTA de urgência de COMPRA: "compra agora", "compre já", "corre que acaba", "garante o seu".
+- hashtags: 4 a 8, minúsculas, sem "#", focadas no PRODUTO e em venda/achados do TikTok (ex.: achadinhos, tiktokshop, achadosdatiktok, tiktokmefezcomprar, compreja, ofertas). NUNCA use hashtag da marca — proibido pirraiashop, pirraia ou qualquer variação.
 - roteiro: roteiro de vídeo TikTok, 3 a 5 cenas rápidas (uma por linha), com ideia de trend/áudio se fizer sentido.`;
     case "whatsapp":
       return `${BASE}
