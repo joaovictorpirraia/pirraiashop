@@ -228,7 +228,13 @@ export default async function VideosAdmin({
                 <UploadVideo produtoId={p.id} temVideo={Boolean(p.video_url)} />
                 {p.video_url && (
                   <>
-                    {tkOn && conta && (
+                    {!p.video_raw_em && (
+                      <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
+                        Sem o vídeo original (este é antigo). Pra usar no TikTok/Reel, clica em
+                        “Trocar vídeo” e sobe de novo.
+                      </p>
+                    )}
+                    {tkOn && conta && p.video_raw_em && (
                       <form className="mt-2 space-y-1.5">
                         <input type="hidden" name="produtoId" value={p.id} />
                         <input
@@ -285,7 +291,7 @@ export default async function VideosAdmin({
                       </div>
                     )}
                     {/* Reel no Instagram (9:16 com preço Shopee + link na bio) — vai público na hora */}
-                    {igOn && (
+                    {igOn && p.video_raw_em && (
                       <form className="mt-1.5 space-y-1.5 border-t border-black/5 pt-2">
                         <input type="hidden" name="produtoId" value={p.id} />
                         <div className="flex gap-1.5">

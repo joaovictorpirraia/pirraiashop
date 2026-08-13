@@ -128,7 +128,12 @@ export async function processarVideoProduto(
     if (upErr) throw new Error(`falha ao subir o vídeo pronto: ${upErr.message}`);
 
     const publicUrl = supabase.storage.from("videos").getPublicUrl(destino).data.publicUrl;
-    await supabase.from("produtos").update({ video_url: publicUrl }).eq("id", produtoId);
+    // marca video_raw_em: depois daqui o raw-{id}.mp4 SEMPRE existe (subido abaixo ou
+    // já é o rawPath), então isso vira o flag confiável de "tem original pra 9:16".
+    await supabase
+      .from("produtos")
+      .update({ video_url: publicUrl, video_raw_em: new Date().toISOString() })
+      .eq("id", produtoId);
     // GUARDA O ORIGINAL em raw-{id}.mp4 (pra gerar o 9:16 do TikTok com texto limpo),
     // e limpa o upload temporário com timestamp — MAS não apaga se o rawPath JÁ é o
     // raw estável (caso do "processar pendentes", que processa direto de raw-{id}.mp4).
