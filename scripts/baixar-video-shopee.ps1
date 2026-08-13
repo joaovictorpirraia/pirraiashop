@@ -81,7 +81,10 @@ function Push-Video([int]$id, [string]$arquivo) {
     -Headers @{ apikey = $service; Authorization = "Bearer $service"; "x-upsert" = "true" } `
     -UseBasicParsing -TimeoutSec 300 | Out-Null
   $patch = "$supaUrl/rest/v1/produtos?id=eq.$id"
-  $body = @{ video_raw_em = (Get-Date).ToUniversalTime().ToString("o"); video_url = $null } | ConvertTo-Json
+  # so marca que tem o original. NAO mexe em video_url: produto novo continua null
+  # (vira pendente -> Processar pendentes faz o 4:5); produto antigo que ja tem o 4:5
+  # so ganha o flag (TikTok/Reel passam a funcionar, sem reprocessar).
+  $body = @{ video_raw_em = (Get-Date).ToUniversalTime().ToString("o") } | ConvertTo-Json
   Invoke-RestMethod -Uri $patch -Method Patch -Body $body -TimeoutSec 20 `
     -Headers @{ apikey = $service; Authorization = "Bearer $service"; "Content-Type" = "application/json"; Prefer = "return=minimal" } | Out-Null
 }
