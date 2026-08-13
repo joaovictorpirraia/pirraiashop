@@ -161,6 +161,11 @@ function Rodape() {
         <p className="mt-3 text-xs font-semibold text-tinta">
           pirraia<span className="text-pirraia">.</span> achadinhos
         </p>
+        <p className="mt-2 text-xs text-fumo">
+          <a href="/privacidade" className="hover:text-pirraia hover:underline">Privacidade</a>
+          <span className="mx-2">·</span>
+          <a href="/termos" className="hover:text-pirraia hover:underline">Termos</a>
+        </p>
       </div>
     </footer>
   );
