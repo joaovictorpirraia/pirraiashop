@@ -325,3 +325,117 @@ export async function gerarVideoReel(
     await limpar();
   }
 }
+
+/**
+ * Monta um REEL 9:16 (slideshow) a partir dos SLIDES do carrossel (capa + criativos
+ * dos produtos) que a máquina já gera. Cada slide vira um quadro 9:16 (fundo desfocado
+ * + slide centralizado), com crossfade entre eles. SEM áudio (a música se embute
+ * depois). É conteúdo próprio (imagens de afiliado) — sem copyright. Guarda em
+ * criativos/reel-slide-{id}.mp4 e devolve a URL. NÃO posta nada.
+ */
+export async function gerarReelSlideshow(
+  supabase: SupabaseClient,
+  carrosselId: number,
+  opts: { maxProdutos?: number; segPorSlide?: number } = {},
+): Promise<string> {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://pirraiashop.com.br";
+  const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supaUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL ausente");
+  const dur = opts.segPorSlide ?? 2.4;
+  const d = 0.4; // crossfade
+
+  const { data: c } = await supabase.from("carrosseis").select("produto_ids").eq("id", carrosselId).maybeSingle();
+  if (!c) throw new Error("carrossel não encontrado");
+  const pids = ((c.produto_ids as number[]) ?? []).slice(0, opts.maxProdutos ?? 6);
+
+  // aquece a capa + criativos (regenera com o design atual) e junta as URLs válidas
+  const objUrl = (p: string) => `${supaUrl}/storage/v1/object/public/criativos/${p}`;
+  const existe = async (url: string): Promise<boolean> => {
+    try {
+      const r = await fetch(url, { cache: "no-store" });
+      const ct = r.headers.get("content-type") ?? "";
+      return r.ok && ct.startsWith("image/") && Number(r.headers.get("content-length") ?? "0") > 1000;
+    } catch {
+      return false;
+    }
+  };
+  const warm = async (rota: string, obj: string): Promise<boolean> => {
+    for (let i = 0; i < 2; i++) {
+      await fetch(rota, { redirect: "manual", cache: "no-store" }).catch(() => {});
+      if (await existe(obj)) return true;
+    }
+    return false;
+  };
+
+  const slidesUrl: string[] = [];
+  const capaObj = objUrl(`capa-${carrosselId}.jpg`);
+  if (await warm(`${base}/api/capa/${carrosselId}`, capaObj)) slidesUrl.push(capaObj);
+  for (const pid of pids) {
+    const o = objUrl(`${pid}.jpg`);
+    if (await warm(`${base}/api/criativo/${pid}`, o)) slidesUrl.push(o);
+  }
+  if (slidesUrl.length < 2) throw new Error("poucos slides válidos pro reel (capa + ao menos 1 produto)");
+
+  const dir = await mkdtemp(join(tmpdir(), "reelslide-"));
+  const out = join(dir, "out.mp4");
+  const arquivos: string[] = [];
+  const limpar = async () => {
+    await Promise.all([...arquivos, out].map((f) => unlink(f).catch(() => {})));
+    await rmdir(dir).catch(() => {});
+  };
+
+  try {
+    // baixa os slides pro disco
+    for (let i = 0; i < slidesUrl.length; i++) {
+      const r = await fetch(slidesUrl[i], { cache: "no-store" });
+      if (!r.ok) continue;
+      const f = join(dir, `s${i}.jpg`);
+      await writeFile(f, Buffer.from(await r.arrayBuffer()));
+      arquivos.push(f);
+    }
+    const N = arquivos.length;
+    if (N < 2) throw new Error("não consegui baixar os slides");
+
+    // monta o filtergraph: cada slide -> quadro 9:16 (bg desfocado + slide centralizado),
+    // depois crossfade em cadeia. offset_k = k*(dur-d); total = N*dur - (N-1)*d.
+    const inputs: string[] = [];
+    for (const f of arquivos) inputs.push("-loop", "1", "-t", String(dur), "-i", f);
+    const partes: string[] = [];
+    for (let i = 0; i < N; i++) {
+      partes.push(
+        `[${i}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=18:1[bg${i}];` +
+          `[${i}:v]scale=1080:1350:force_original_aspect_ratio=decrease[fg${i}];` +
+          `[bg${i}][fg${i}]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=30,format=yuv420p[c${i}]`,
+      );
+    }
+    let prev = "c0";
+    for (let k = 1; k < N; k++) {
+      const off = (k * (dur - d)).toFixed(2);
+      const outLbl = k === N - 1 ? "vout" : `x${k}`;
+      partes.push(`[${prev}][c${k}]xfade=transition=fade:duration=${d}:offset=${off}[${outLbl}]`);
+      prev = outLbl;
+    }
+    const mapLbl = N === 1 ? "[c0]" : "[vout]";
+
+    await rodarFfmpeg([
+      ...inputs,
+      "-filter_complex", partes.join(";"),
+      "-map", mapLbl,
+      "-r", "30",
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "23",
+      "-pix_fmt", "yuv420p",
+      "-movflags", "+faststart",
+      out,
+    ]);
+
+    const final = await readFile(out);
+    const destino = `reel-slide-${carrosselId}.mp4`;
+    await supabase.storage.from("criativos").upload(destino, final, { contentType: "video/mp4", upsert: true });
+    const publicUrl = supabase.storage.from("criativos").getPublicUrl(destino).data.publicUrl;
+    return `${publicUrl}?v=${final.length}`;
+  } finally {
+    await limpar();
+  }
+}
