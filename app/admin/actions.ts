@@ -6,8 +6,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes, classificarCategoria, categorizarProdutos } from "@/lib/curadoria";
-import { gerarConteudo, salvarRascunho, type ProdutoParaConteudo } from "@/lib/conteudo";
-import { publicarCarrossel as publicarCarrosselIG, publicarCarrosselVideo, publicarReel, instagramConfigurado } from "@/lib/instagram";
+import { gerarConteudo, salvarRascunho, gerarLegenda3D as gerarLegenda3DIA, type ProdutoParaConteudo } from "@/lib/conteudo";
+import { publicarCarrossel as publicarCarrosselIG, publicarCarrosselVideo, publicarReel, publicarFotoFeed, instagramConfigurado } from "@/lib/instagram";
 import { inserirRascunhoCarrossel, montarRascunhoAuto, curarProdutosParaVitrine } from "@/lib/carrossel";
 import { rodarLoopDiario } from "@/lib/loop";
 import { postarStoryAuto } from "@/lib/stories";
@@ -1878,4 +1878,104 @@ export async function removerProduto3D(formData: FormData) {
   revalidatePath("/admin/3d");
   revalidatePath("/3d");
   redirect("/admin/3d?removido=1");
+}
+
+/**
+ * Gera (ou regenera) a legenda de Instagram de uma peça 3D com a IA e salva como
+ * rascunho no canal 'instagram_3d' (1 por produto). Framing de encomenda/WhatsApp,
+ * não de achadinho. O dono revisa/edita antes de publicar.
+ */
+export async function gerarLegenda3D(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  if (!produtoId) return;
+  const supabase = supabaseAdmin();
+  const { data: p } = await supabase
+    .from("produtos")
+    .select("id, titulo, categoria, preco, descricao")
+    .eq("id", produtoId)
+    .maybeSingle();
+  if (!p) return;
+  try {
+    const { legenda, hashtags } = await gerarLegenda3DIA({
+      titulo: p.titulo as string,
+      categoria: (p.categoria as string) ?? null,
+      preco: p.preco as number,
+      descricao: (p.descricao as string) ?? null,
+    });
+    const { data: existe } = await supabase
+      .from("posts")
+      .select("id")
+      .eq("produto_id", produtoId)
+      .eq("canal", "instagram_3d")
+      .maybeSingle();
+    if (existe) {
+      await supabase.from("posts").update({ legenda, hashtags, status: "rascunho" }).eq("id", existe.id);
+    } else {
+      await supabase.from("posts").insert({
+        produto_id: produtoId,
+        canal: "instagram_3d",
+        legenda,
+        hashtags,
+        roteiro: "",
+        status: "rascunho",
+      });
+    }
+  } catch (e) {
+    console.error("[admin] legenda 3D:", (e as Error).message);
+  }
+  revalidatePath("/admin/3d");
+}
+
+/** Salva a edição manual da legenda/hashtags de um post 3D. */
+export async function salvarLegenda3D(formData: FormData) {
+  const postId = Number(formData.get("postId"));
+  if (!postId) return;
+  const legenda = String(formData.get("legenda") ?? "").trim();
+  const hashtags = String(formData.get("hashtags") ?? "")
+    .split(/[\s,]+/)
+    .map((h) => h.replace(/^#+/, "").toLowerCase().trim())
+    .filter(Boolean)
+    .slice(0, 12);
+  await supabaseAdmin().from("posts").update({ legenda, hashtags }).eq("id", postId);
+  revalidatePath("/admin/3d");
+}
+
+/**
+ * Publica a peça 3D no feed do Instagram: arte via /api/criativo3d/{id} (JPEG) +
+ * legenda do rascunho. Marca 'publicado' e loga em execucoes. Gated em IG_*.
+ */
+export async function publicarNoFeed3D(formData: FormData) {
+  if (!instagramConfigurado()) throw new Error("Instagram não configurado no servidor");
+  const postId = Number(formData.get("postId"));
+  const produtoId = Number(formData.get("produtoId"));
+  if (!postId || !produtoId) return;
+  const supabase = supabaseAdmin();
+  const inicio = Date.now();
+  const site = process.env.NEXT_PUBLIC_SITE_URL || "https://pirraiashop.com.br";
+
+  const { data: post } = await supabase.from("posts").select("legenda, hashtags").eq("id", postId).maybeSingle();
+  const tags = ((post?.hashtags as string[]) ?? []).map((h) => "#" + h).join(" ");
+  const caption = [post?.legenda?.trim(), tags].filter(Boolean).join("\n\n");
+  const imageUrl = `${site}/api/criativo3d/${produtoId}`;
+
+  try {
+    const res = await publicarFotoFeed({ imageUrl, caption });
+    await supabase.from("posts").update({ status: "publicado", publicado_em: new Date().toISOString() }).eq("id", postId);
+    await supabase.from("execucoes").insert({
+      job: "publicar_ig_3d",
+      ok: true,
+      itens: 1,
+      detalhe: { postId, produtoId, ig_media_id: res.id },
+      duracao_ms: Date.now() - inicio,
+    });
+  } catch (e) {
+    await supabase.from("execucoes").insert({
+      job: "publicar_ig_3d",
+      ok: false,
+      itens: 0,
+      detalhe: { postId, produtoId, erro: (e as Error).message },
+      duracao_ms: Date.now() - inicio,
+    });
+  }
+  revalidatePath("/admin/3d");
 }

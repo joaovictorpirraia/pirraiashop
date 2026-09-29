@@ -239,6 +239,85 @@ Formato: post CARROSSEL de "achados do dia" no FEED do Instagram, com vários pr
   return { gancho, tema_fundo, legenda, palavras, hashtags };
 }
 
+const SCHEMA_3D = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    legenda: { type: "string" },
+    hashtags: { type: "array", items: { type: "string" } },
+  },
+  required: ["legenda", "hashtags"],
+} as const;
+
+/**
+ * Gera legenda + hashtags de um post de FEED do Instagram para uma PEÇA 3D PRÓPRIA
+ * (o dono imprime e entrega; venda por encomenda no WhatsApp). Difere do achadinho:
+ * NÃO é afiliado, NÃO tem "corre que acaba/desconto", NÃO manda pra Shopee. O tom é
+ * de produto feito sob encomenda, com carinho, personalizável. CTA leva pro WhatsApp
+ * (via bio → /3d). Hashtags de impressão 3D / feito à mão / presente.
+ */
+export async function gerarLegenda3D(produto: {
+  titulo: string;
+  categoria: string | null;
+  preco: number | string | null;
+  descricao: string | null;
+}): Promise<{ legenda: string; hashtags: string[] }> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY ausente — geração de conteúdo não configurada");
+  }
+  const client = new OpenAI();
+  const system = `${BASE}
+IMPORTANTE: este NÃO é um achadinho de afiliado. É uma peça que o DONO imprime em 3D e vende por
+ENCOMENDA, entregando pessoalmente. A compra é pelo WhatsApp (o link fica na bio, na aba /3d).
+Formato: post de FEED do Instagram pra vender essa peça 3D.
+- legenda: 3 a 6 linhas. 1ª linha um gancho que para o scroll. Fale que é impressão 3D feita sob
+  encomenda, dá pra escolher cor, ótimo pra presente/decoração/uso — o que fizer sentido pra peça.
+  Se vier descrição (material, cores, prazo), use. Nada de "corre que acaba" nem preço riscado (não é
+  promoção de loja, é encomenda). Termine com CTA pra CHAMAR NO WHATSAPP pra encomendar (ex.: "chama
+  no WhatsApp pra encomendar o seu 👉 link na bio").
+- hashtags: 5 a 10 minúsculas, sem "#", de impressão 3D e nicho (ex.: impressao3d, impressora3d,
+  feitoem3d, decoracao3d, feitoamao, presentecriativo, geekstuff, organizacao3d). Escolha as que
+  combinam com a peça. NÃO use hashtag de Shopee/afiliado/achadinho.`;
+
+  const resp = await client.chat.completions.create({
+    model: MODELO,
+    max_completion_tokens: 1200,
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: "legenda3d", strict: true, schema: SCHEMA_3D as unknown as Record<string, unknown> },
+    },
+    messages: [
+      { role: "system", content: system },
+      {
+        role: "user",
+        content: JSON.stringify({
+          titulo: produto.titulo,
+          categoria: produto.categoria,
+          preco: produto.preco == null ? null : Number(produto.preco),
+          descricao: produto.descricao,
+        }),
+      },
+    ],
+  });
+
+  let o: Record<string, unknown> = {};
+  try {
+    o = JSON.parse(resp.choices[0]?.message?.content ?? "");
+  } catch {
+    /* cai no erro abaixo */
+  }
+  const legenda = typeof o.legenda === "string" ? o.legenda.trim() : "";
+  const hashtags = Array.isArray(o.hashtags)
+    ? o.hashtags
+        .filter((h): h is string => typeof h === "string")
+        .map((h) => h.trim().replace(/^#+/, "").toLowerCase())
+        .filter(Boolean)
+        .slice(0, 12)
+    : [];
+  if (!legenda) throw new Error("a IA não devolveu legenda");
+  return { legenda, hashtags };
+}
+
 /**
  * Gera rascunhos pros produtos curados que ainda não têm rascunho (teto de 10
  * por rodada). Reusada pela rota /api/gerar-conteudo e pelo botão do admin.
@@ -250,7 +329,7 @@ export async function gerarRascunhosPendentes(
   const { data: linksRaw, error: e1 } = await supabase
     .from("links")
     .select(
-      "id, produto_id, produto:produtos!inner(id, titulo, categoria, preco, preco_antigo, desconto_pct, loja_nome, angulo_ia, tags_ia, status)",
+      "id, produto_id, produto:produtos!inner(id, titulo, categoria, preco, preco_antigo, desconto_pct, loja_nome, angulo_ia, tags_ia, status, proprio)",
     )
     .eq("ativo", true);
   if (e1) throw new Error(e1.message);
@@ -268,8 +347,8 @@ export async function gerarRascunhosPendentes(
     id: number;
     produto_id: number;
     produto:
-      | (ProdutoParaConteudo & { status: string })
-      | (ProdutoParaConteudo & { status: string })[];
+      | (ProdutoParaConteudo & { status: string; proprio: boolean | null })
+      | (ProdutoParaConteudo & { status: string; proprio: boolean | null })[];
   };
   const candidatos = ((linksRaw ?? []) as Row[])
     .map((l) => ({
@@ -279,6 +358,7 @@ export async function gerarRascunhosPendentes(
     .filter(
       (c) =>
         c.produto &&
+        !c.produto.proprio && // peças 3D próprias têm gerador dedicado (gerarLegenda3D)
         ["curado", "publicado"].includes(c.produto.status) &&
         !jaTem.has(c.produto.id),
     )
