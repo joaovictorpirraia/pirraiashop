@@ -13,6 +13,9 @@ export interface VitrineItem {
   loja_nome: string | null;
   avaliacao: string | number | null;
   origem: string;
-  // loja de destino, derivada do link de afiliado (shopee/mercadolivre/tiktok)
+  // loja de destino, derivada do link de afiliado (shopee/mercadolivre/tiktok/whatsapp)
   loja: string;
+  // produto próprio (3D do dono, vendido via WhatsApp na aba /3d)
+  proprio: boolean | null;
+  descricao: string | null;
 }

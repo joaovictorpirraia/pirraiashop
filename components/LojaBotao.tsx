@@ -6,6 +6,9 @@
  *  - resto (tiktok/manual sem link reconhecido) → cai no padrão Shopee
  */
 function infoLoja(loja: string): { texto: string; classe: string } {
+  if (loja === "whatsapp") {
+    return { texto: "Comprar no WhatsApp", classe: "bg-[#25D366] text-white hover:brightness-95" };
+  }
   if (loja === "mercadolivre") {
     return {
       texto: "Ver no Mercado Livre",

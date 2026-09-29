@@ -1780,3 +1780,81 @@ export async function processarVideosPendentes() {
   revalidatePath("/admin/videos");
   redirect(`/admin/videos?processados=${processados}_${erros}`);
 }
+
+/** Número do WhatsApp pro botão "Comprar" dos produtos 3D (env com fallback). */
+function whatsappNumero(): string {
+  return (process.env.WHATSAPP_NUMERO || "5581992274919").replace(/\D/g, "");
+}
+
+/**
+ * Cadastra um produto PRÓPRIO (3D impresso pelo dono) na vitrine /3d. Sem link de
+ * afiliado: o "short_url" é o link do WhatsApp com a mensagem de encomenda pronta.
+ * proprio=true separa da vitrine de achadinhos. O clique passa pelo /r/{slug}
+ * (conta clique + dispara pixel Lead) e cai no WhatsApp.
+ */
+export async function adicionarProduto3D(formData: FormData) {
+  const titulo = String(formData.get("titulo") ?? "").trim();
+  const imagemUrl = String(formData.get("imagem_url") ?? "").trim();
+  const preco = Number(formData.get("preco"));
+  const descricao = String(formData.get("descricao") ?? "").trim() || null;
+  const slugBase = slugify(String(formData.get("slug") ?? "") || titulo);
+
+  if (!titulo || !imagemUrl || !Number.isFinite(preco) || preco <= 0 || !/^https?:\/\//i.test(imagemUrl)) {
+    redirect("/admin/3d?erro=1");
+  }
+
+  const supabase = supabaseAdmin();
+  const { data: prod, error: e1 } = await supabase
+    .from("produtos")
+    .insert({
+      origem: "proprio",
+      item_id: Date.now(),
+      titulo,
+      categoria: "3D",
+      preco,
+      imagem_url: imagemUrl,
+      descricao,
+      proprio: true,
+      status: "curado",
+    })
+    .select("id")
+    .single();
+  if (e1 || !prod) {
+    console.error("[admin] adicionar 3D:", e1?.message);
+    redirect("/admin/3d?erro=1");
+  }
+
+  // slug único
+  let slug = slugBase || `produto-3d-${prod.id}`;
+  const raiz = slug;
+  for (let i = 2; i < 60; i++) {
+    const { data: existe } = await supabase.from("links").select("id").eq("slug", slug).maybeSingle();
+    if (!existe) break;
+    slug = `${raiz}-${i}`;
+  }
+  const { data: ult } = await supabase.from("links").select("ordem").order("ordem", { ascending: false }).limit(1).maybeSingle();
+  const ordem = (ult?.ordem ?? -1) + 1;
+
+  // link do WhatsApp com a mensagem de encomenda
+  const msg = `Oi! Quero encomendar em 3D: ${titulo}. Vim pelo pirraiashop.`;
+  const shortUrl = `https://wa.me/${whatsappNumero()}?text=${encodeURIComponent(msg)}`;
+
+  await supabase.from("links").insert({ produto_id: prod.id, slug, short_url: shortUrl, ativo: true, ordem });
+
+  revalidatePath("/admin/3d");
+  revalidatePath("/3d");
+  revalidatePath("/");
+  redirect("/admin/3d?ok=1");
+}
+
+/** Remove um produto 3D da vitrine (desativa o link). */
+export async function removerProduto3D(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  if (!produtoId) return;
+  const supabase = supabaseAdmin();
+  await supabase.from("links").update({ ativo: false }).eq("produto_id", produtoId);
+  await supabase.from("produtos").update({ status: "descartado" }).eq("id", produtoId);
+  revalidatePath("/admin/3d");
+  revalidatePath("/3d");
+  redirect("/admin/3d?removido=1");
+}
