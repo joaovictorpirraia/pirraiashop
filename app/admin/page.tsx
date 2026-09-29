@@ -209,6 +209,12 @@ export default async function Admin({
               Instagram
             </a>
             <a
+              href="/admin/3d"
+              className="rounded-full border border-black/10 px-3 py-1.5 font-bold text-tinta transition-colors hover:bg-white"
+            >
+              Produtos 3D
+            </a>
+            <a
               href="/admin/categorias"
               className="rounded-full border border-black/10 px-3 py-1.5 font-bold text-tinta transition-colors hover:bg-white"
             >

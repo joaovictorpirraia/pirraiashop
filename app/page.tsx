@@ -15,6 +15,7 @@ export default async function Home() {
   const { data, error } = await supabase
     .from("vitrine")
     .select("*")
+    .eq("proprio", false) // achadinhos de afiliado; os 3D próprios ficam na aba /3d
     .returns<VitrineItem[]>();
 
   const itens = data ?? [];
@@ -64,12 +65,15 @@ function Header() {
   return (
     <header className="sticky top-0 z-30 h-14 border-b border-black/5 bg-areia/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-5 lg:max-w-7xl">
-        <span className="text-xl font-extrabold tracking-tight text-tinta">
+        <a href="/" className="text-xl font-extrabold tracking-tight text-tinta">
           pirraiashop<span className="text-pirraia">.</span>com.br
-        </span>
-        <span className="hidden text-xs font-medium text-fumo sm:block">
-          achadinhos garimpados e testados para quem gosta de ofertas
-        </span>
+        </a>
+        <a
+          href="/3d"
+          className="rounded-full bg-tinta px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-black"
+        >
+          Impressões 3D
+        </a>
       </div>
     </header>
   );
