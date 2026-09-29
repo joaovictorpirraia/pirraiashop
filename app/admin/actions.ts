@@ -1801,9 +1801,11 @@ export async function adicionarProduto3D(formData: FormData) {
   const supabase = supabaseAdmin();
 
   // foto: upload do PC tem prioridade; senão usa a URL colada (ex.: vinda do MakerWorld).
+  // Duck-typing em vez de `instanceof File`: File não é global no Node 18 (EasyPanel),
+  // e referenciar o construtor lá derruba o server action com ReferenceError.
   let imagemUrl = String(formData.get("imagem_url") ?? "").trim();
   const foto = formData.get("foto");
-  if (foto instanceof File && foto.size > 0) {
+  if (foto && typeof foto !== "string" && foto.size > 0) {
     if (!foto.type.startsWith("image/") || foto.size > 8 * 1024 * 1024) {
       redirect("/admin/3d?erro=1"); // não é imagem ou passou de 8 MB
     }
