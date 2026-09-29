@@ -14,6 +14,8 @@ const nextConfig = {
       // MakerWorld (capa og dos modelos 3D — via bookmarklet)
       { protocol: "https", hostname: "makerworld.bblmw.com" },
       { protocol: "https", hostname: "**.bblmw.com" },
+      // Supabase Storage (fotos dos produtos 3D enviadas do PC, bucket criativos)
+      { protocol: "https", hostname: "wxrmjkxiuflvbqspauao.supabase.co" },
       // placeholder dos produtos falsos do seed — remover quando entrar catálogo real
       { protocol: "https", hostname: "picsum.photos" },
     ],
