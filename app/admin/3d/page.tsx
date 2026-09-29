@@ -136,8 +136,12 @@ export default async function Admin3D({
             <input name="titulo" required defaultValue={searchParams.titulo || ""} placeholder="ex: Suporte de celular articulado" className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
           </label>
           <label className="flex flex-col gap-1 text-xs font-semibold text-fumo sm:col-span-2">
-            URL da foto (a tua foto do print converte mais; ou a do modelo)
-            <input name="imagem_url" required defaultValue={searchParams.imagem_url || ""} placeholder="https://..." className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
+            Foto do PC (a tua foto do print converte mais)
+            <input name="foto" type="file" accept="image/*" className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta file:mr-3 file:rounded-md file:border-0 file:bg-pirraia file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white outline-none" />
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-semibold text-fumo sm:col-span-2">
+            …ou cole uma URL (é o que vem do MakerWorld pelo bookmarklet)
+            <input name="imagem_url" defaultValue={searchParams.imagem_url || ""} placeholder="https://..." className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
           </label>
           <label className="flex flex-col gap-1 text-xs font-semibold text-fumo">
             Preço (R$)

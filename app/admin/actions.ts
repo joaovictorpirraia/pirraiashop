@@ -1794,16 +1794,35 @@ function whatsappNumero(): string {
  */
 export async function adicionarProduto3D(formData: FormData) {
   const titulo = String(formData.get("titulo") ?? "").trim();
-  const imagemUrl = String(formData.get("imagem_url") ?? "").trim();
   const preco = Number(formData.get("preco"));
   const descricao = String(formData.get("descricao") ?? "").trim() || null;
   const slugBase = slugify(String(formData.get("slug") ?? "") || titulo);
 
+  const supabase = supabaseAdmin();
+
+  // foto: upload do PC tem prioridade; senão usa a URL colada (ex.: vinda do MakerWorld).
+  let imagemUrl = String(formData.get("imagem_url") ?? "").trim();
+  const foto = formData.get("foto");
+  if (foto instanceof File && foto.size > 0) {
+    if (!foto.type.startsWith("image/") || foto.size > 8 * 1024 * 1024) {
+      redirect("/admin/3d?erro=1"); // não é imagem ou passou de 8 MB
+    }
+    const ext = (foto.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const caminho = `3d/${Date.now()}-${slugBase || "peca"}.${ext}`;
+    const bytes = Buffer.from(await foto.arrayBuffer());
+    const { error: upErr } = await supabase.storage
+      .from("criativos")
+      .upload(caminho, bytes, { contentType: foto.type, upsert: true });
+    if (upErr) {
+      console.error("[admin] upload foto 3D:", upErr.message);
+      redirect("/admin/3d?erro=1");
+    }
+    imagemUrl = supabase.storage.from("criativos").getPublicUrl(caminho).data.publicUrl;
+  }
+
   if (!titulo || !imagemUrl || !Number.isFinite(preco) || preco <= 0 || !/^https?:\/\//i.test(imagemUrl)) {
     redirect("/admin/3d?erro=1");
   }
-
-  const supabase = supabaseAdmin();
   const { data: prod, error: e1 } = await supabase
     .from("produtos")
     .insert({
