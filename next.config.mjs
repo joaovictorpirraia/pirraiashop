@@ -11,6 +11,9 @@ const nextConfig = {
       // CDN da AliExpress
       { protocol: "https", hostname: "**.alicdn.com" },
       { protocol: "https", hostname: "**.aliexpress-media.com" },
+      // MakerWorld (capa og dos modelos 3D — via bookmarklet)
+      { protocol: "https", hostname: "makerworld.bblmw.com" },
+      { protocol: "https", hostname: "**.bblmw.com" },
       // placeholder dos produtos falsos do seed — remover quando entrar catálogo real
       { protocol: "https", hostname: "picsum.photos" },
     ],

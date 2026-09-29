@@ -13,10 +13,31 @@ interface Prod3D {
   descricao: string | null;
 }
 
+// bookmarklet do MakerWorld: pega og:title, og:image e license da página do modelo
+// (que passou o Cloudflare no navegador do dono) e abre este form pré-preenchido.
+// Só aspas simples + \x22 no regex, pra caber num href sem escape.
+const BOOKMARKLET =
+  "javascript:(function(){var g=function(p){var l=document.getElementsByTagName('meta');for(var i=0;i<l.length;i++){if(l[i].getAttribute('property')===p)return l[i].content||''}return ''};var t=(g('og:title')||document.title||'').split(' | ')[0].split(' - ')[0].trim();var img=g('og:image');var lic='';try{var s=JSON.stringify(window.__NEXT_DATA__);var m=s.match(/license\\x22:\\x22([^\\x22]+)/);if(m)lic=m[1];}catch(e){}var u='https://pirraiashop.com.br/admin/3d?titulo='+encodeURIComponent(t)+'&imagem_url='+encodeURIComponent(img)+'&licenca='+encodeURIComponent(lic)+'&fonte='+encodeURIComponent(location.href.split('#')[0]);window.open(u,'_blank');})();";
+
+/** true se a licença permite vender print sem pagar (Public Domain / CC0 / BY sem NC). */
+function licencaComercialLivre(lic: string): boolean {
+  const l = lic.toLowerCase();
+  if (l.includes("nc") || l.includes("standard digital")) return false;
+  return l.includes("public domain") || l.includes("cc0") || /(^|[^n])by/.test(l);
+}
+
 export default async function Admin3D({
   searchParams,
 }: {
-  searchParams: { ok?: string; erro?: string; removido?: string };
+  searchParams: {
+    ok?: string;
+    erro?: string;
+    removido?: string;
+    titulo?: string;
+    imagem_url?: string;
+    licenca?: string;
+    fonte?: string;
+  };
 }) {
   const supabase = supabaseAdmin();
   const { data } = await supabase
@@ -67,17 +88,56 @@ export default async function Admin3D({
         </p>
       )}
 
+      {/* BOOKMARKLET do MakerWorld */}
+      <section className="mb-6 rounded-2xl border border-black/10 bg-white p-5">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-fumo">Puxar do MakerWorld (1 clique)</h2>
+        <p className="mt-1 text-xs text-fumo">
+          <b>Arrasta</b> o botão abaixo pra tua barra de favoritos. Depois, numa página de modelo do
+          MakerWorld, clica nele: ele abre este cadastro já com <b>nome + foto + licença</b>. Você só
+          confere a licença e põe o preço.
+        </p>
+        <div
+          className="mt-3"
+          dangerouslySetInnerHTML={{
+            __html: `<a href="${BOOKMARKLET}" class="inline-block rounded-lg bg-tinta px-4 py-2 text-sm font-bold text-white no-underline">Mandar pro Pirraia 3D</a>`,
+          }}
+        />
+        <p className="mt-2 text-[11px] text-fumo">
+          Não clica aqui — <b>arrasta</b> pra a barra de favoritos. Depois use na página do modelo.
+        </p>
+      </section>
+
       {/* FORM: adicionar produto 3D */}
       <section className="mb-8 rounded-2xl border border-black/10 bg-white p-5">
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-fumo">Adicionar peça 3D</h2>
+
+        {searchParams.licenca && (
+          <div
+            className={`mb-3 rounded-lg border px-3 py-2 text-xs ${
+              licencaComercialLivre(searchParams.licenca)
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-amber-300 bg-amber-50 text-amber-800"
+            }`}
+          >
+            Licença do modelo: <b>{searchParams.licenca}</b>.{" "}
+            {licencaComercialLivre(searchParams.licenca)
+              ? "Livre pra comércio (dê crédito ao criador se for BY)."
+              : "ATENÇÃO: essa licença NÃO libera vender o print sem a licença comercial do criador. Confirma no perfil dele antes de vender."}
+          </div>
+        )}
+        {searchParams.imagem_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={searchParams.imagem_url} alt="" className="mb-3 h-32 w-32 rounded-lg object-cover" />
+        )}
+
         <form action={adicionarProduto3D} className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-xs font-semibold text-fumo sm:col-span-2">
             Nome da peça
-            <input name="titulo" required placeholder="ex: Suporte de celular articulado" className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
+            <input name="titulo" required defaultValue={searchParams.titulo || ""} placeholder="ex: Suporte de celular articulado" className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
           </label>
           <label className="flex flex-col gap-1 text-xs font-semibold text-fumo sm:col-span-2">
             URL da foto (a tua foto do print converte mais; ou a do modelo)
-            <input name="imagem_url" required placeholder="https://..." className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
+            <input name="imagem_url" required defaultValue={searchParams.imagem_url || ""} placeholder="https://..." className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
           </label>
           <label className="flex flex-col gap-1 text-xs font-semibold text-fumo">
             Preço (R$)
