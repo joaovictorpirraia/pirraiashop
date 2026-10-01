@@ -132,10 +132,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         </div>
 
         {/* card do produto */}
-        <div style={{ display: "flex", width: "100%", height: 772, marginTop: 30, borderRadius: 44, overflow: "hidden", background: "#fff", boxShadow: "0 30px 70px rgba(0,0,0,0.22)" }}>
+        <div style={{ display: "flex", width: "100%", height: 772, marginTop: 30, padding: 36, borderRadius: 44, overflow: "hidden", background: "#fff", boxShadow: "0 30px 70px rgba(0,0,0,0.22)" }}>
           {img ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={img} width={968} height={772} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+            <img src={img} width={896} height={700} style={{ width: "100%", height: "100%", objectFit: "contain" }} alt="" />
           ) : (
             <div style={{ display: "flex", width: "100%", height: "100%", alignItems: "center", justifyContent: "center", fontSize: 40, color: "#b9afa6", fontWeight: 600 }}>
               pirraiashop 3D
@@ -153,8 +153,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
               <div style={{ display: "flex", fontSize: 24, fontWeight: 500, letterSpacing: 2, color: corSuave }}>A PARTIR DE</div>
               <div style={{ display: "flex", fontSize: 90, fontWeight: 800, color: corTexto, lineHeight: 1 }}>{brl(preco)}</div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", background: LARANJA, color: "#fff", fontSize: 29, fontWeight: 600, padding: "16px 28px", borderRadius: 999, marginBottom: 8 }}>
-              peça na bio →
+            <div style={{ display: "flex", alignItems: "center", background: "#25D366", color: "#fff", fontSize: 27, fontWeight: 600, padding: "16px 26px", borderRadius: 999, marginBottom: 8 }}>
+              chama no WhatsApp
             </div>
           </div>
         </div>
