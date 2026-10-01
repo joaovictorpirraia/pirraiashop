@@ -10,12 +10,28 @@
  * fetch interno dele. Shopee/ML já vêm JPEG via jpegDe; AliExpress passa a vir JPEG/PNG.
  */
 
-/** Reescreve a URL pra a variante JPEG conhecida (Shopee/ML). */
+/** Reescreve a URL pra a variante JPEG/PNG conhecida (Shopee/ML/MakerWorld). */
 export function jpegDe(url: string): string {
   if (/mlstatic\.com/i.test(url)) return url.replace(/\.webp(\?.*)?$/i, ".jpg");
   if (/susercontent\.com/i.test(url)) {
     if (/\/file\//.test(url)) return url.replace(/\.webp$/i, "");
     return url.replace(/susercontent\.com\//i, "susercontent.com/file/").replace(/\.webp$/i, "");
+  }
+  // MakerWorld (bblmw.com): o OSS da Alibaba devolve webp SEMPRE, ignorando o Accept —
+  // e o Satori não decodifica webp (foto some no criativo 3D). Força /format,png (jpg o
+  // OSS ignora). Mantém o resize e põe o format antes do /ignore-error.
+  if (/bblmw\.com/i.test(url)) {
+    try {
+      const u = new URL(url);
+      let proc = (u.searchParams.get("x-oss-process") || "image").replace(/\/format,[a-z0-9]+/gi, "");
+      proc = /\/ignore-error/i.test(proc)
+        ? proc.replace(/\/ignore-error[^/]*/i, (m) => `/format,png${m}`)
+        : `${proc}/format,png`;
+      u.searchParams.set("x-oss-process", proc);
+      return u.toString();
+    } catch {
+      return url;
+    }
   }
   return url;
 }
