@@ -1979,3 +1979,51 @@ export async function publicarNoFeed3D(formData: FormData) {
   }
   revalidatePath("/admin/3d");
 }
+
+/**
+ * Precifica uma peça 3D importada (status 'novo', sem preço) e a coloca na /3d:
+ * grava o preço, cria o link do WhatsApp e muda o status pra 'curado'. É o passo
+ * que falta depois do import em lote da coleção.
+ */
+export async function precificarImportado3D(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  const preco = Number(formData.get("preco"));
+  if (!produtoId || !Number.isFinite(preco) || preco <= 0) return;
+  const supabase = supabaseAdmin();
+
+  const { data: p } = await supabase.from("produtos").select("id, titulo").eq("id", produtoId).maybeSingle();
+  if (!p) return;
+
+  await supabase.from("produtos").update({ preco, status: "curado" }).eq("id", produtoId);
+
+  // cria o link do WhatsApp se ainda não existe
+  const { data: linkExiste } = await supabase.from("links").select("id").eq("produto_id", produtoId).maybeSingle();
+  if (!linkExiste) {
+    let slug = slugify(String(p.titulo)) || `produto-3d-${produtoId}`;
+    const raiz = slug;
+    for (let i = 2; i < 60; i++) {
+      const { data: existe } = await supabase.from("links").select("id").eq("slug", slug).maybeSingle();
+      if (!existe) break;
+      slug = `${raiz}-${i}`;
+    }
+    const { data: ult } = await supabase.from("links").select("ordem").order("ordem", { ascending: false }).limit(1).maybeSingle();
+    const ordem = (ult?.ordem ?? -1) + 1;
+    const msg = `Oi! Quero encomendar em 3D: ${p.titulo}. Vim pelo pirraiashop.`;
+    const shortUrl = `https://wa.me/${whatsappNumero()}?text=${encodeURIComponent(msg)}`;
+    await supabase.from("links").insert({ produto_id: produtoId, slug, short_url: shortUrl, ativo: true, ordem });
+  } else {
+    await supabase.from("links").update({ ativo: true }).eq("produto_id", produtoId);
+  }
+
+  revalidatePath("/admin/3d");
+  revalidatePath("/3d");
+  revalidatePath("/");
+}
+
+/** Descarta uma peça 3D importada que você não vai vender (tira da fila). */
+export async function descartarImportado3D(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  if (!produtoId) return;
+  await supabaseAdmin().from("produtos").update({ status: "descartado" }).eq("id", produtoId);
+  revalidatePath("/admin/3d");
+}
