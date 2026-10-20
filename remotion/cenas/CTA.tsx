@@ -10,7 +10,7 @@ export function CTA({ loja }: { loja: string }) {
   const corTexto = loja === "mercadolivre" ? "#2D3277" : CORES.branco;
 
   return (
-    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", opacity: s }}>
+    <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: 360, opacity: s }}>
       <div style={{ transform: `translateY(${(1 - s) * 30}px)`, textAlign: "center" }}>
         <div style={{ fontFamily: POPPINS, fontWeight: 800, fontSize: 68, color: CORES.marca }}>link na bio</div>
         <div
