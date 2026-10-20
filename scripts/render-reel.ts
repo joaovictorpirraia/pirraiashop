@@ -140,7 +140,9 @@ async function main() {
   console.log("OK:", await renderProduto(id));
 }
 
-main().catch((e) => {
-  console.error("ERRO:", e.message);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error("ERRO:", e.message);
+    process.exit(1);
+  });
