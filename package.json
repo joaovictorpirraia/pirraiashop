@@ -9,7 +9,7 @@
     "lint": "next lint",
     "reel": "node --env-file-if-exists=.env.local --import tsx scripts/render-reel.ts",
     "reel:studio": "remotion studio remotion/index.ts",
-    "test": "node --import tsx --test ./test/",
+    "test": "node --import tsx --test \"test/*.test.ts\"",
     "typecheck:reel": "tsc -p tsconfig.remotion.json --noEmit"
   },
   "dependencies": {
