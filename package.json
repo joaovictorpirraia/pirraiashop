@@ -9,7 +9,8 @@
     "lint": "next lint",
     "reel": "node --env-file-if-exists=.env.local --import tsx scripts/render-reel.ts",
     "reel:studio": "remotion studio remotion/index.ts",
-    "test": "node --import tsx --test ./test/"
+    "test": "node --import tsx --test ./test/",
+    "typecheck:reel": "tsc -p tsconfig.remotion.json --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.45.4",
@@ -22,10 +23,10 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "@remotion/bundler": "^4.0.537",
-    "@remotion/cli": "^4.0.537",
-    "@remotion/google-fonts": "^4.0.537",
-    "@remotion/renderer": "^4.0.537",
+    "@remotion/bundler": "4.0.537",
+    "@remotion/cli": "4.0.537",
+    "@remotion/google-fonts": "4.0.537",
+    "@remotion/renderer": "4.0.537",
     "@types/node": "20.16.11",
     "@types/pngjs": "6.0.5",
     "@types/react": "18.3.11",
@@ -33,7 +34,7 @@
     "autoprefixer": "10.4.20",
     "cross-env": "^7.0.3",
     "postcss": "8.4.47",
-    "remotion": "^4.0.537",
+    "remotion": "4.0.537",
     "tailwindcss": "3.4.14",
     "tsx": "^4.23.15",
     "typescript": "5.6.3",

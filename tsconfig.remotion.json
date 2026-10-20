@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "plugins": []
+  },
+  "include": ["remotion/**/*.ts", "remotion/**/*.tsx", "scripts/**/*.ts", "test/**/*.ts", "remotion.config.ts"],
+  "exclude": ["node_modules"]
+}
