@@ -19,6 +19,7 @@ interface ProdVideo {
   video_tiktok_url: string | null;
   legenda_tiktok: string | null;
   video_reel_url: string | null;
+  reel_foto_url: string | null;
   tiktok_enviado_em: string | null;
   video_raw_em: string | null;
   status: string;
@@ -47,7 +48,7 @@ export default async function VideosAdmin({
 
   const { data } = await supabase
     .from("links")
-    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, legenda_tiktok, video_reel_url, tiktok_enviado_em, video_raw_em, status)")
+    .select("produto:produtos!inner(id, titulo, imagem_url, preco, video_url, video_tiktok_url, legenda_tiktok, video_reel_url, reel_foto_url, tiktok_enviado_em, video_raw_em, status)")
     .eq("ativo", true)
     .eq("pausado", false)
     .limit(300);
@@ -80,7 +81,9 @@ export default async function VideosAdmin({
       </div>
       <p className="mb-1 text-sm text-tinta/70">
         Sobe um vídeo por produto. O sistema corta pra 4:5 e queima nome + preço + marca.
-        Depois é só montar o carrossel de vídeo na tela do Instagram.
+        Depois é só montar o carrossel de vídeo na tela do Instagram. Produtos com foto também
+        ganham um <strong>reel automático</strong> (gerado pelo script local{" "}
+        <code>npm run reel</code>) — a prévia aparece no card.
       </p>
       <p className="mb-3 text-xs text-tinta/50">
         {lista.length} produtos na vitrine · {comVideo} com vídeo pronto · MP4/MOV até 100&nbsp;MB.
@@ -246,6 +249,28 @@ export default async function VideosAdmin({
               <div className="text-sm font-bold text-tinta">{brl(Number(p.preco))}</div>
               <div className="mt-auto">
                 <UploadVideo produtoId={p.id} temVideo={Boolean(p.video_url)} />
+                {p.reel_foto_url && (
+                  <div className="mt-2 border-t border-black/5 pt-2">
+                    <div className="mb-1 text-[11px] font-bold text-pirraia">Reel da foto (auto)</div>
+                    <video
+                      src={p.reel_foto_url}
+                      muted
+                      loop
+                      playsInline
+                      controls
+                      className="w-full rounded-lg bg-black/5"
+                    />
+                    <a
+                      href={p.reel_foto_url}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 block text-center text-[11px] font-semibold text-pirraia hover:underline"
+                    >
+                      baixar reel ↗
+                    </a>
+                  </div>
+                )}
                 {p.video_url && (
                   <>
                     {!p.video_raw_em && (
