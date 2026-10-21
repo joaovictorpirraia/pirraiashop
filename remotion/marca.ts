@@ -1,6 +1,11 @@
 import { loadFont as loadPoppins } from "@remotion/google-fonts/Poppins";
 
-export const { fontFamily: POPPINS } = loadPoppins();
+// Só os pesos que as cenas usam (600/700/800) e latin — evita dezenas de requests por render.
+export const { fontFamily: POPPINS } = loadPoppins("normal", {
+  weights: ["600", "700", "800"],
+  subsets: ["latin"],
+  ignoreTooManyRequestsWarning: true,
+});
 
 export const CORES = {
   marca: "#E5126A",
