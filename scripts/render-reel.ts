@@ -135,14 +135,19 @@ async function main() {
   const id = Number(args[0]);
   if (!Number.isFinite(id)) {
     console.error("uso: npm run reel -- <id> | --slug <slug> | --novos | --regerar <id>");
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
   console.log("OK:", await renderProduto(id));
 }
 
+// Saída natural (process.exitCode), sem process.exit(): forçar a saída entra em corrida
+// com o teardown do tsx/libuv no Windows e dispara "Assertion failed ... async.c".
 main()
-  .then(() => process.exit(0))
+  .then(() => {
+    process.exitCode = 0;
+  })
   .catch((e) => {
     console.error("ERRO:", e.message);
-    process.exit(1);
+    process.exitCode = 1;
   });
