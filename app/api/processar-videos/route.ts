@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { cronAutorizado } from "@/lib/seguranca";
 import { processarVideoProduto } from "@/lib/video";
 
 export const runtime = "nodejs";
@@ -11,9 +12,7 @@ export const maxDuration = 180;
  * ainda). Gera o 4:5 de até `?n=` por rodada. Protegido por CRON_SECRET.
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const key = request.nextUrl.searchParams.get("key") ?? request.headers.get("x-cron-key");
-  if (!secret || key !== secret) {
+  if (!cronAutorizado(request)) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
 

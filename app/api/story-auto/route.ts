@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { cronAutorizado } from "@/lib/seguranca";
 import { postarStoryAuto } from "@/lib/stories";
 import { instagramConfigurado } from "@/lib/instagram";
 
@@ -15,9 +16,7 @@ export const maxDuration = 120;
  * Protegida por CRON_SECRET. Gate em IG_USER_ID/IG_ACCESS_TOKEN.
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const key = request.nextUrl.searchParams.get("key") ?? request.headers.get("x-cron-key");
-  if (!secret || key !== secret) {
+  if (!cronAutorizado(request)) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
   if (!instagramConfigurado()) {

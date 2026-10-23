@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { compararSegredo } from "@/lib/seguranca";
 
 // Basic Auth simples só na área de admin. Não inventar auth — senha em env.
 export const config = { matcher: ["/admin", "/admin/:path*"] };
@@ -32,7 +33,8 @@ export function middleware(req: NextRequest) {
   const u = sep >= 0 ? decoded.slice(0, sep) : decoded;
   const p = sep >= 0 ? decoded.slice(sep + 1) : "";
 
-  if (u !== user || p !== pass) return negar();
+  // comparação em tempo constante (evita timing attack no user/senha)
+  if (!(compararSegredo(u, user) && compararSegredo(p, pass))) return negar();
 
   // Marca a request como área de admin pra o layout raiz não injetar o pixel
   // (não faz sentido poluir o pixel de conversão com PageView do painel).
