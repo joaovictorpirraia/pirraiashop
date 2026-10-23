@@ -2,6 +2,9 @@
   "name": "pirraiashop",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20 <23"
+  },
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--use-system-ca next dev",
     "build": "next build",
@@ -13,7 +16,7 @@
     "typecheck:reel": "tsc -p tsconfig.remotion.json --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.45.4",
+    "@supabase/supabase-js": "^2.118.0",
     "jpeg-js": "^0.4.4",
     "jszip": "^3.10.1",
     "next": "^14.2.35",

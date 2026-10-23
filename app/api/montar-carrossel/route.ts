@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { cronAutorizado } from "@/lib/seguranca";
 import { montarRascunhoAuto } from "@/lib/carrossel";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,7 @@ export const maxDuration = 120;
  * ?n= define quantos produtos (default 8, teto 9 pela regra do carrossel).
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const key = request.nextUrl.searchParams.get("key") ?? request.headers.get("x-cron-key");
-  if (!secret || key !== secret) {
+  if (!cronAutorizado(request)) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
   if (!process.env.OPENAI_API_KEY) {

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { cronAutorizado } from "@/lib/seguranca";
 import { AliexpressAfiliado } from "@/lib/aliexpress";
 import { ingerirItensAli } from "@/lib/ingest";
 
@@ -19,10 +20,7 @@ export const maxDuration = 60;
  * Requer a migration 008_aliexpress.sql aplicada (senão o check de origem rejeita).
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const key =
-    request.nextUrl.searchParams.get("key") ?? request.headers.get("x-cron-key");
-  if (!secret || key !== secret) {
+  if (!cronAutorizado(request)) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
 

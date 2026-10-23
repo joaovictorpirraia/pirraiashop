@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { cronAutorizado } from "@/lib/seguranca";
 import { pontuarPendentes } from "@/lib/curadoria";
 
 export const dynamic = "force-dynamic";
@@ -15,10 +16,7 @@ export const maxDuration = 120;
  * OPENAI_API_KEY existir. A lógica de parsing + gravação é testada à parte.
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const key =
-    request.nextUrl.searchParams.get("key") ?? request.headers.get("x-cron-key");
-  if (!secret || key !== secret) {
+  if (!cronAutorizado(request)) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
 
