@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { cronAutorizado } from "@/lib/seguranca";
 import { rodarLoopDiario } from "@/lib/loop";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +16,7 @@ export const maxDuration = 180;
  * (legenda). ?n= define quantos produtos (default 8, teto 9).
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const key = request.nextUrl.searchParams.get("key") ?? request.headers.get("x-cron-key");
-  if (!secret || key !== secret) {
+  if (!cronAutorizado(request)) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
   if (!process.env.SHOPEE_APP_ID || !process.env.SHOPEE_SECRET) {
