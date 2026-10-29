@@ -45,6 +45,17 @@ export default async function Impressoes3D({
   // categoria vinda dos ícones/banners (/3d?cat=Natal) pré-seleciona o catálogo
   const categoriaInicial = searchParams?.cat;
 
+  // recortes (PNG transparente) de produtos reais, pra flutuar nos banners
+  const REC = "https://wxrmjkxiuflvbqspauao.supabase.co/storage/v1/object/public/criativos/3d/recortes/";
+  const heroFotos = [REC + "14.png", REC + "3.png", REC + "18.png"]; // rena, árvore, engrenagens
+  const fotosCasa = [REC + "4.png", REC + "14.png"]; // monstera, rena
+  const fotosPresente = [REC + "13.png", REC + "20.png"]; // argolas personalizadas, boneco pixel
+  const fotosFeat = {
+    Natal: REC + "5.png", // presépio
+    Sensoriais: REC + "17.png", // fidget cube
+    Colecionáveis: REC + "22.png", // capivara
+  };
+
   return (
     <div className="min-h-screen overflow-x-hidden">
       <PixelTrack event="ViewContent" params={{ content_name: "3d" }} />
@@ -62,11 +73,11 @@ export default async function Impressoes3D({
       ) : (
         <main>
           <div className="mx-auto max-w-[1180px] px-4">
-            <HeroBanner3D banner={banner} />
+            <HeroBanner3D banner={banner} fotos={heroFotos} />
           </div>
 
           <Beneficios3D />
-          <BannersSegmento3D />
+          <BannersSegmento3D fotosCasa={fotosCasa} fotosPresente={fotosPresente} />
           <CategoriasCirculos3D />
 
           {novidades.length > 0 && (
@@ -81,7 +92,7 @@ export default async function Impressoes3D({
             </section>
           )}
 
-          <BannersCategoria3D />
+          <BannersCategoria3D fotos={fotosFeat} />
 
           {destaques.length > 0 && (
             <section className="py-4 pt-2">
