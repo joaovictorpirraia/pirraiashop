@@ -45,19 +45,15 @@ export default async function Impressoes3D({
   // categoria vinda dos ícones/banners (/3d?cat=Natal) pré-seleciona o catálogo
   const categoriaInicial = searchParams?.cat;
 
-  // artes de produto por categoria, pra flutuar nos banners
-  const porCategoria: Record<string, string[]> = {};
-  for (const i of itens) {
-    if (i.categoria && i.imagem_url) (porCategoria[i.categoria] ??= []).push(i.imagem_url);
-  }
-  const img1 = (cat: string) => porCategoria[cat]?.[0];
-  const heroFotos = [img1("Colecionáveis"), img1("Sensoriais"), img1("Natal")].filter(Boolean) as string[];
-  const fotosCasa = [img1("Decoração"), img1("Utilidades"), img1("Natal")].filter(Boolean) as string[];
-  const fotosPresente = [img1("Brindes"), img1("Futebol")].filter(Boolean) as string[];
+  // recortes (PNG transparente) de produtos reais, pra flutuar nos banners
+  const REC = "https://wxrmjkxiuflvbqspauao.supabase.co/storage/v1/object/public/criativos/3d/recortes/";
+  const heroFotos = [REC + "14.png", REC + "3.png", REC + "18.png"]; // rena, árvore, engrenagens
+  const fotosCasa = [REC + "4.png", REC + "14.png"]; // monstera, rena
+  const fotosPresente = [REC + "13.png", REC + "20.png"]; // argolas personalizadas, boneco pixel
   const fotosFeat = {
-    Natal: img1("Natal"),
-    Sensoriais: img1("Sensoriais"),
-    Colecionáveis: img1("Colecionáveis"),
+    Natal: REC + "5.png", // presépio
+    Sensoriais: REC + "17.png", // fidget cube
+    Colecionáveis: REC + "22.png", // capivara
   };
 
   return (

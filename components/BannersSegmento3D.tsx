@@ -51,8 +51,8 @@ function Segmento({
 }) {
   const cluster = fotos.slice(0, 2);
   const cards = [
-    "right-4 bottom-3 h-[118px] w-[118px] rotate-[-6deg] z-20",
-    "right-[92px] bottom-[42px] h-[80px] w-[80px] rotate-[9deg] z-10",
+    "right-3 bottom-2 h-[150px] w-[130px] rotate-[-5deg] z-20",
+    "right-[104px] bottom-[46px] h-[96px] w-[90px] rotate-[9deg] z-10",
   ];
   return (
     <div className={`relative min-h-[196px] overflow-hidden rounded-[18px] ${classeFundo}`}>
@@ -68,15 +68,15 @@ function Segmento({
         </a>
       </div>
       {cluster.length > 0 && (
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[220px] sm:block">
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[240px] sm:block">
           {cluster.map((src, i) => (
-            <div
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               key={src}
-              className={`absolute overflow-hidden rounded-2xl bg-white shadow-[0_18px_36px_-14px_rgba(0,0,0,.4)] ring-1 ring-black/10 ${cards[i]}`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="h-full w-full object-cover" />
-            </div>
+              src={src}
+              alt=""
+              className={`absolute object-contain drop-shadow-[0_14px_22px_rgba(0,0,0,.33)] ${cards[i]}`}
+            />
           ))}
         </div>
       )}

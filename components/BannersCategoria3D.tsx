@@ -63,10 +63,12 @@ function Feat({
       style={{ background: fundo }}
     >
       {foto && (
-        <div className="pointer-events-none absolute -right-3 -top-3 h-[130px] w-[130px] overflow-hidden rounded-2xl bg-white shadow-[0_18px_36px_-14px_rgba(0,0,0,.5)] ring-1 ring-white/20 rotate-[-6deg]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={foto} alt="" className="h-full w-full object-cover" />
-        </div>
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={foto}
+          alt=""
+          className="pointer-events-none absolute -right-2 -top-3 h-[150px] w-[150px] rotate-[-5deg] object-contain drop-shadow-[0_16px_24px_rgba(0,0,0,.45)]"
+        />
       )}
       <span className="relative text-[11px] font-bold uppercase tracking-[2px] opacity-85">{eyebrow}</span>
       <h3 className="relative mb-1.5 mt-1.5 font-display text-2xl font-semibold">{titulo}</h3>

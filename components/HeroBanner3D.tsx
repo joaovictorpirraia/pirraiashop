@@ -42,11 +42,11 @@ export function HeroBanner3D({
   }
 
   const cluster = fotos.slice(0, 3);
-  // posição/rotação de cada card do cluster (desktop)
+  // posição/rotação de cada recorte do cluster (desktop)
   const cards = [
-    "left-[120px] top-1/2 h-[220px] w-[220px] -translate-y-1/2 rotate-[-5deg] z-20",
-    "left-[0px] top-[24px] h-[150px] w-[150px] rotate-[8deg] z-10",
-    "right-[8px] bottom-[18px] h-[160px] w-[160px] rotate-[-11deg] z-10",
+    "left-[130px] top-1/2 h-[250px] w-[200px] -translate-y-1/2 rotate-[-4deg] z-20",
+    "left-[6px] top-[6px] h-[150px] w-[150px] rotate-[7deg] z-10",
+    "right-[0px] bottom-[2px] h-[170px] w-[180px] rotate-[-9deg] z-10",
   ];
 
   return (
@@ -77,15 +77,15 @@ export function HeroBanner3D({
         </div>
 
         {cluster.length > 0 ? (
-          <div className="pointer-events-none absolute right-6 top-1/2 hidden h-[260px] w-[420px] -translate-y-1/2 lg:block">
+          <div className="pointer-events-none absolute right-8 top-1/2 hidden h-[270px] w-[430px] -translate-y-1/2 lg:block">
             {cluster.map((src, i) => (
-              <div
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 key={src}
-                className={`absolute overflow-hidden rounded-2xl bg-white shadow-[0_22px_44px_-14px_rgba(0,0,0,.5)] ring-1 ring-black/10 ${cards[i]}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="" className="h-full w-full object-cover" />
-              </div>
+                src={src}
+                alt=""
+                className={`absolute object-contain drop-shadow-[0_18px_26px_rgba(0,0,0,.4)] ${cards[i]}`}
+              />
             ))}
           </div>
         ) : (
