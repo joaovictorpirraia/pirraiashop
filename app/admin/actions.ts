@@ -2027,3 +2027,120 @@ export async function descartarImportado3D(formData: FormData) {
   await supabaseAdmin().from("produtos").update({ status: "descartado" }).eq("id", produtoId);
   revalidatePath("/admin/3d");
 }
+
+/**
+ * Sobe 1 foto pra galeria de uma peça 3D (append em produtos.fotos). A capa
+ * continua sendo imagem_url; estas são as fotos extras da página do produto.
+ * Duck-typing de File (não é global no Node 18 do EasyPanel) — ver adicionarProduto3D.
+ */
+export async function adicionarFoto3D(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  const foto = formData.get("foto");
+  if (!produtoId || !foto || typeof foto === "string" || foto.size === 0) {
+    redirect("/admin/3d?erro=1");
+  }
+  if (!foto.type.startsWith("image/") || foto.size > 8 * 1024 * 1024) {
+    redirect("/admin/3d?erro=1"); // não é imagem ou passou de 8 MB
+  }
+  const supabase = supabaseAdmin();
+  const ext = (foto.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const caminho = `3d/galeria/${produtoId}-${Date.now()}.${ext}`;
+  const bytes = Buffer.from(await foto.arrayBuffer());
+  const { error: upErr } = await supabase.storage
+    .from("criativos")
+    .upload(caminho, bytes, { contentType: foto.type, upsert: true });
+  if (upErr) {
+    console.error("[admin] upload galeria 3D:", upErr.message);
+    redirect("/admin/3d?erro=1");
+  }
+  const url = supabase.storage.from("criativos").getPublicUrl(caminho).data.publicUrl;
+  const { data: prod } = await supabase.from("produtos").select("fotos").eq("id", produtoId).single();
+  const fotos = [...((prod?.fotos as string[]) ?? []), url];
+  await supabase.from("produtos").update({ fotos }).eq("id", produtoId);
+  revalidatePath("/admin/3d");
+  revalidatePath("/3d");
+  redirect("/admin/3d?ok=1");
+}
+
+/** Remove uma URL da galeria (produtos.fotos) de uma peça 3D. */
+export async function removerFoto3D(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  const url = String(formData.get("url") ?? "");
+  if (!produtoId || !url) return;
+  const supabase = supabaseAdmin();
+  const { data: prod } = await supabase.from("produtos").select("fotos").eq("id", produtoId).single();
+  const fotos = ((prod?.fotos as string[]) ?? []).filter((u) => u !== url);
+  await supabase.from("produtos").update({ fotos }).eq("id", produtoId);
+  revalidatePath("/admin/3d");
+  revalidatePath("/3d");
+  redirect("/admin/3d?ok=1");
+}
+
+/** Grava as cores disponíveis de uma peça 3D (chaves marcadas do PALETTE). */
+export async function salvarCores3D(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  if (!produtoId) return;
+  const cores = formData.getAll("cores").map(String).filter(Boolean);
+  await supabaseAdmin().from("produtos").update({ cores }).eq("id", produtoId);
+  revalidatePath("/admin/3d");
+  revalidatePath("/3d");
+  redirect("/admin/3d?ok=1");
+}
+
+/** Define a categoria de uma peça 3D (muda o filtro na /3d). */
+export async function definirCategoria3D(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  if (!produtoId) return;
+  const categoria = String(formData.get("categoria") ?? "").trim() || "3D";
+  await supabaseAdmin().from("produtos").update({ categoria }).eq("id", produtoId);
+  revalidatePath("/admin/3d");
+  revalidatePath("/3d");
+  redirect("/admin/3d?ok=1");
+}
+
+/**
+ * Upsert do banner ativo da home /3d (MVP: 1 banner ativo). Imagem é opcional via
+ * upload no Storage criativos; se não subir, mantém a imagem_url atual (hidden do form).
+ * Mesmo duck-typing de File das outras actions.
+ */
+export async function salvarBanner(formData: FormData) {
+  const supabase = supabaseAdmin();
+  const titulo = String(formData.get("titulo") ?? "").trim() || null;
+  const subtitulo = String(formData.get("subtitulo") ?? "").trim() || null;
+  const link = String(formData.get("link") ?? "").trim() || null;
+  let imagemUrl = String(formData.get("imagem_url") ?? "").trim() || null;
+
+  const foto = formData.get("foto");
+  if (foto && typeof foto !== "string" && foto.size > 0) {
+    if (!foto.type.startsWith("image/") || foto.size > 8 * 1024 * 1024) {
+      redirect("/admin/3d?erro=1");
+    }
+    const ext = (foto.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const caminho = `3d/banner/${Date.now()}.${ext}`;
+    const bytes = Buffer.from(await foto.arrayBuffer());
+    const { error: upErr } = await supabase.storage
+      .from("criativos")
+      .upload(caminho, bytes, { contentType: foto.type, upsert: true });
+    if (upErr) {
+      console.error("[admin] upload banner 3D:", upErr.message);
+      redirect("/admin/3d?erro=1");
+    }
+    imagemUrl = supabase.storage.from("criativos").getPublicUrl(caminho).data.publicUrl;
+  }
+
+  const { data: existente } = await supabase
+    .from("banners")
+    .select("id")
+    .eq("ativo", true)
+    .order("ordem", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (existente) {
+    await supabase.from("banners").update({ imagem_url: imagemUrl, titulo, subtitulo, link }).eq("id", existente.id);
+  } else {
+    await supabase.from("banners").insert({ imagem_url: imagemUrl, titulo, subtitulo, link, ativo: true });
+  }
+  revalidatePath("/admin/3d");
+  revalidatePath("/3d");
+  redirect("/admin/3d?ok=1");
+}
