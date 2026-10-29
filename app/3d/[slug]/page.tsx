@@ -7,6 +7,9 @@ import { Galeria3D } from "@/components/Galeria3D";
 import { ComprarProduto3D } from "@/components/ComprarProduto3D";
 import { ProdutoCard } from "@/components/ProdutoCard";
 import { PixelTrack } from "@/components/PixelTrack";
+import { HeaderLoja3D } from "@/components/HeaderLoja3D";
+import { BarraAviso3D } from "@/components/BarraAviso3D";
+import { RodapeLoja3D } from "@/components/RodapeLoja3D";
 
 export const dynamic = "force-dynamic";
 
@@ -30,19 +33,11 @@ export default async function Produto3D({ params }: { params: { slug: string } }
   const antigo = p.preco_antigo != null ? Number(p.preco_antigo) : null;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <PixelTrack event="ViewContent" params={{ content_name: p.titulo, content_category: p.categoria ?? "3D" }} />
 
-      <header className="sticky top-0 z-30 h-14 border-b border-black/5 bg-areia/90 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-5">
-          <a href="/3d" className="text-xl font-extrabold tracking-tight text-tinta">
-            pirraiashop<span className="text-pirraia">.</span> 3D
-          </a>
-          <a href="/3d" className="rounded-full border border-black/10 px-3.5 py-1.5 text-xs font-bold text-tinta hover:bg-white">
-            ← Voltar
-          </a>
-        </div>
-      </header>
+      <BarraAviso3D />
+      <HeaderLoja3D ativo="" />
 
       <main className="mx-auto max-w-5xl px-5 py-6">
         <nav className="mb-4 text-xs text-fumo">
@@ -78,13 +73,7 @@ export default async function Produto3D({ params }: { params: { slug: string } }
         )}
       </main>
 
-      <footer className="border-t border-black/5 bg-white">
-        <div className="mx-auto max-w-5xl px-5 py-8">
-          <p className="text-xs leading-relaxed text-fumo">
-            Peças feitas sob encomenda e impressas por mim. Prazo, cores e frete são combinados no WhatsApp antes do pagamento.
-          </p>
-        </div>
-      </footer>
+      <RodapeLoja3D />
     </div>
   );
 }

@@ -20,9 +20,16 @@ const norm = (s: string) =>
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "");
 
-export function Grade({ itens }: { itens: VitrineItem[] }) {
+export function Grade({
+  itens,
+  categoriaInicial,
+}: {
+  itens: VitrineItem[];
+  // categoria pré-selecionada (ex.: vinda de /3d?cat=Natal); opcional
+  categoriaInicial?: string;
+}) {
   const [fonte, setFonte] = useState<string>(TODAS);
-  const [ativa, setAtiva] = useState<string>(TODOS);
+  const [ativa, setAtiva] = useState<string>(categoriaInicial || TODOS);
   const [busca, setBusca] = useState<string>("");
 
   // lojas presentes (só mostra o seletor de fonte se houver mais de uma)
