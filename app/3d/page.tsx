@@ -45,6 +45,21 @@ export default async function Impressoes3D({
   // categoria vinda dos ícones/banners (/3d?cat=Natal) pré-seleciona o catálogo
   const categoriaInicial = searchParams?.cat;
 
+  // artes de produto por categoria, pra flutuar nos banners
+  const porCategoria: Record<string, string[]> = {};
+  for (const i of itens) {
+    if (i.categoria && i.imagem_url) (porCategoria[i.categoria] ??= []).push(i.imagem_url);
+  }
+  const img1 = (cat: string) => porCategoria[cat]?.[0];
+  const heroFotos = [img1("Colecionáveis"), img1("Sensoriais"), img1("Natal")].filter(Boolean) as string[];
+  const fotosCasa = [img1("Decoração"), img1("Utilidades"), img1("Natal")].filter(Boolean) as string[];
+  const fotosPresente = [img1("Brindes"), img1("Futebol")].filter(Boolean) as string[];
+  const fotosFeat = {
+    Natal: img1("Natal"),
+    Sensoriais: img1("Sensoriais"),
+    Colecionáveis: img1("Colecionáveis"),
+  };
+
   return (
     <div className="min-h-screen overflow-x-hidden">
       <PixelTrack event="ViewContent" params={{ content_name: "3d" }} />
@@ -62,11 +77,11 @@ export default async function Impressoes3D({
       ) : (
         <main>
           <div className="mx-auto max-w-[1180px] px-4">
-            <HeroBanner3D banner={banner} />
+            <HeroBanner3D banner={banner} fotos={heroFotos} />
           </div>
 
           <Beneficios3D />
-          <BannersSegmento3D />
+          <BannersSegmento3D fotosCasa={fotosCasa} fotosPresente={fotosPresente} />
           <CategoriasCirculos3D />
 
           {novidades.length > 0 && (
@@ -81,7 +96,7 @@ export default async function Impressoes3D({
             </section>
           )}
 
-          <BannersCategoria3D />
+          <BannersCategoria3D fotos={fotosFeat} />
 
           {destaques.length > 0 && (
             <section className="py-4 pt-2">

@@ -1,44 +1,85 @@
-/** Dois banners de segmento (casa / presente), lado a lado no desktop. */
-export function BannersSegmento3D() {
+/** Dois banners de segmento (casa / presente), com produtos flutuando. */
+export function BannersSegmento3D({
+  fotosCasa = [],
+  fotosPresente = [],
+}: {
+  fotosCasa?: string[];
+  fotosPresente?: string[];
+}) {
   return (
     <section className="py-8">
       <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-[18px] px-4 md:grid-cols-2">
-        <div className="flex min-h-[180px] flex-col justify-center rounded-[18px] bg-gradient-to-br from-[#FDEBDD] to-[#FBD9BE] p-8">
-          <span className="text-[11px] font-bold uppercase tracking-[2px] text-laranja">
-            Pra sua casa
-          </span>
-          <h3 className="mb-1.5 mt-2 font-display text-[26px] font-semibold">
-            Decoração que é a sua cara
-          </h3>
-          <p className="mb-4 max-w-[30ch] text-fumo">
-            Enfeites, letreiros, porta-coisas e mais, do seu jeito.
-          </p>
-          <a
-            href="/3d?cat=Decora%C3%A7%C3%A3o#catalogo"
-            className="inline-block self-start rounded-full bg-laranja px-6 py-3 font-display text-[15px] font-semibold text-white"
-          >
-            Ver decoração
-          </a>
-        </div>
-
-        <div className="flex min-h-[180px] flex-col justify-center rounded-[18px] bg-gradient-to-br from-[#EAE6FB] to-[#DFD8F7] p-8">
-          <span className="text-[11px] font-bold uppercase tracking-[2px] text-laranja">
-            Pra presentear
-          </span>
-          <h3 className="mb-1.5 mt-2 font-display text-[26px] font-semibold">
-            Presente que ninguém tem
-          </h3>
-          <p className="mb-4 max-w-[30ch] text-fumo">
-            Chaveiros, nomes e peças personalizadas pra dar de presente.
-          </p>
-          <a
-            href="/3d?cat=Brindes#catalogo"
-            className="inline-block self-start rounded-full bg-laranja px-6 py-3 font-display text-[15px] font-semibold text-white"
-          >
-            Ver presentes
-          </a>
-        </div>
+        <Segmento
+          eyebrow="Pra sua casa"
+          titulo="Decoração que é a sua cara"
+          texto="Enfeites, letreiros, porta-coisas e mais, do seu jeito."
+          cta="Ver decoração"
+          href="/3d?cat=Decora%C3%A7%C3%A3o#catalogo"
+          classeFundo="bg-gradient-to-br from-[#FDEBDD] to-[#FBD9BE]"
+          fotos={fotosCasa}
+        />
+        <Segmento
+          eyebrow="Pra presentear"
+          titulo="Presente que ninguém tem"
+          texto="Chaveiros, nomes e peças personalizadas pra dar de presente."
+          cta="Ver presentes"
+          href="/3d?cat=Brindes#catalogo"
+          classeFundo="bg-gradient-to-br from-[#EAE6FB] to-[#DFD8F7]"
+          fotos={fotosPresente}
+        />
       </div>
     </section>
+  );
+}
+
+function Segmento({
+  eyebrow,
+  titulo,
+  texto,
+  cta,
+  href,
+  classeFundo,
+  fotos,
+}: {
+  eyebrow: string;
+  titulo: string;
+  texto: string;
+  cta: string;
+  href: string;
+  classeFundo: string;
+  fotos: string[];
+}) {
+  const cluster = fotos.slice(0, 2);
+  const cards = [
+    "right-4 bottom-3 h-[118px] w-[118px] rotate-[-6deg] z-20",
+    "right-[92px] bottom-[42px] h-[80px] w-[80px] rotate-[9deg] z-10",
+  ];
+  return (
+    <div className={`relative min-h-[196px] overflow-hidden rounded-[18px] ${classeFundo}`}>
+      <div className="relative z-10 flex h-full flex-col justify-center p-8 sm:pr-[130px]">
+        <span className="text-[11px] font-bold uppercase tracking-[2px] text-laranja">{eyebrow}</span>
+        <h3 className="mb-1.5 mt-2 max-w-[18ch] font-display text-[26px] font-semibold">{titulo}</h3>
+        <p className="mb-4 max-w-[26ch] text-fumo">{texto}</p>
+        <a
+          href={href}
+          className="inline-block self-start rounded-full bg-laranja px-6 py-3 font-display text-[15px] font-semibold text-white"
+        >
+          {cta}
+        </a>
+      </div>
+      {cluster.length > 0 && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[220px] sm:block">
+          {cluster.map((src, i) => (
+            <div
+              key={src}
+              className={`absolute overflow-hidden rounded-2xl bg-white shadow-[0_18px_36px_-14px_rgba(0,0,0,.4)] ring-1 ring-black/10 ${cards[i]}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" className="h-full w-full object-cover" />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
