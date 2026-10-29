@@ -6,6 +6,8 @@ import { CompartilharBotao } from "./CompartilharBotao";
 
 export function ProdutoCard({ item }: { item: VitrineItem }) {
   const avaliacao = nota(item.avaliacao);
+  // peça própria (3D) abre a página de produto; afiliado vai direto pro redirect
+  const href = item.proprio ? `/3d/${item.slug}` : `/r/${item.slug}`;
 
   return (
     <div className="group relative">
@@ -16,7 +18,7 @@ export function ProdutoCard({ item }: { item: VitrineItem }) {
         descontoPct={item.desconto_pct}
         className="absolute right-2 top-2 z-10"
       />
-      <a href={`/r/${item.slug}`} className="block">
+      <a href={href} className="block">
       <div className="relative aspect-square overflow-hidden rounded-2xl bg-white shadow-carta">
         {item.imagem_url && (
           <Image
@@ -61,7 +63,11 @@ export function ProdutoCard({ item }: { item: VitrineItem }) {
           </span>
         </div>
 
-        <LojaBotao loja={item.loja} className="mt-2.5" />
+        <LojaBotao
+          loja={item.loja}
+          rotulo={item.proprio ? "Ver produto" : undefined}
+          className="mt-2.5"
+        />
       </div>
       </a>
     </div>

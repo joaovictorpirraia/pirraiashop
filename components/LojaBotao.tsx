@@ -28,12 +28,17 @@ export function LojaBotao({
   loja,
   grande = false,
   className = "",
+  rotulo,
 }: {
   loja: string;
   grande?: boolean;
   className?: string;
+  // quando vier, substitui o texto padrão da marca (ex.: "Ver produto" na peça própria)
+  rotulo?: string;
 }) {
-  const { texto, classe } = infoLoja(loja);
+  const info = infoLoja(loja);
+  const texto = rotulo ?? info.texto;
+  const classe = info.classe;
   const tam = grande ? "py-3 text-base" : "py-2 text-sm";
   const ic = grande ? "h-4 w-4" : "h-3.5 w-3.5";
   return (
