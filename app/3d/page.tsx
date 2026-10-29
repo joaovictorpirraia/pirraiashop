@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { supabasePublic } from "@/lib/supabase";
 import type { VitrineItem } from "@/lib/types";
 import { Grade } from "@/components/Grade";
+import { Banner3D } from "@/components/Banner3D";
+import { Carrossel3D } from "@/components/Carrossel3D";
 import { PixelTrack } from "@/components/PixelTrack";
+import { bannerAtivo } from "@/lib/banner";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +22,13 @@ export default async function Impressoes3D() {
     .eq("proprio", true)
     .returns<VitrineItem[]>();
   const itens = data ?? [];
+
+  const banner = await bannerAtivo();
+  const novidades = [...itens]
+    .filter((i) => i.criado_em)
+    .sort((a, b) => (b.criado_em! > a.criado_em! ? 1 : -1))
+    .slice(0, 10);
+  const destaques = itens.filter((i) => i.destaque).slice(0, 10);
 
   return (
     <div className="min-h-screen">
@@ -50,7 +60,16 @@ export default async function Impressoes3D() {
             Nenhuma peça 3D publicada ainda. Volta já já.
           </p>
         ) : (
-          <Grade itens={itens} />
+          <>
+            {banner && (
+              <div className="mb-6">
+                <Banner3D banner={banner} />
+              </div>
+            )}
+            <Carrossel3D titulo="Novidades" itens={novidades} />
+            <Carrossel3D titulo="Destaques" itens={destaques} />
+            <Grade itens={itens} />
+          </>
         )}
       </main>
 
