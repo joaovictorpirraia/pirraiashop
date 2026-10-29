@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { supabasePublicNoCache } from "@/lib/supabase";
 import { enviarLeadCapi } from "@/lib/meta-capi";
 import { brl } from "@/lib/format";
+import { anexarCor } from "@/lib/whatsapp";
+import { corLabel } from "@/lib/cores";
 
 // robôs de prévia de link (WhatsApp, Facebook, Telegram…). Pra eles servimos
 // OG tags com preço em vez de redirecionar — assim a prévia mostra a oferta.
@@ -142,5 +144,10 @@ export async function GET(
     fbc: request.cookies.get("_fbc")?.value ?? null,
   });
 
-  return NextResponse.redirect(shortUrl as string, 302);
+  const corParam = url.searchParams.get("cor");
+  const destino = corParam
+    ? anexarCor(shortUrl as string, corLabel(corParam))
+    : (shortUrl as string);
+
+  return NextResponse.redirect(destino, 302);
 }
