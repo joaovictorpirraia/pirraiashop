@@ -3,6 +3,8 @@ import { brl } from "@/lib/format";
 import { BotaoSubmit } from "@/components/BotaoSubmit";
 import { CopiarTexto } from "@/components/CopiarTexto";
 import { instagramConfigurado } from "@/lib/instagram";
+import { bannerAtivo } from "@/lib/banner";
+import { PALETTE } from "@/lib/cores";
 import {
   adicionarProduto3D,
   removerProduto3D,
@@ -11,7 +13,26 @@ import {
   publicarNoFeed3D,
   precificarImportado3D,
   descartarImportado3D,
+  adicionarFoto3D,
+  removerFoto3D,
+  salvarCores3D,
+  definirCategoria3D,
+  salvarBanner,
 } from "../actions";
+
+// categorias da /3d pro dropdown (as 9 do filtro + o default "3D")
+const CATEGORIAS_3D = [
+  "Natal",
+  "Sensoriais",
+  "Cozinha",
+  "Utilidades",
+  "Colecionáveis",
+  "Brindes",
+  "Fé",
+  "Decoração",
+  "Futebol",
+  "3D",
+];
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +50,9 @@ interface Prod3D {
   preco: string | number | null;
   imagem_url: string | null;
   descricao: string | null;
+  fotos: string[] | null;
+  cores: string[] | null;
+  categoria: string | null;
 }
 
 // bookmarklet do MakerWorld: pega og:title, og:image e license da página do modelo
@@ -65,7 +89,7 @@ export default async function Admin3D({
   const supabase = supabaseAdmin();
   const { data } = await supabase
     .from("links")
-    .select("slug, produto:produtos!inner(id, titulo, preco, imagem_url, descricao, proprio, status)")
+    .select("slug, produto:produtos!inner(id, titulo, preco, imagem_url, descricao, fotos, cores, categoria, proprio, status)")
     .eq("ativo", true)
     .limit(300);
 
@@ -95,6 +119,9 @@ export default async function Admin3D({
     .order("id", { ascending: false })
     .limit(300);
   const importados = (importadosRaw ?? []) as { id: number; titulo: string; imagem_url: string | null; licenca: string | null }[];
+
+  // banner ativo da home /3d (MVP: 1 banner)
+  const banner = await bannerAtivo();
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -129,6 +156,51 @@ export default async function Admin3D({
           Faltou algo (título, foto e preço são obrigatórios; a foto tem que ser uma URL http).
         </p>
       )}
+
+      {/* BANNER da home /3d */}
+      <section className="mb-6 rounded-2xl border border-black/10 bg-white p-5">
+        <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-fumo">Banner da home /3d</h2>
+        <p className="mb-3 text-xs text-fumo">
+          Aparece no topo da aba /3d. Só o título e o subtítulo já valem; a imagem é opcional. Deixe a
+          imagem em branco pra manter a atual. Link é pra onde o banner leva ao clicar (opcional).
+        </p>
+        {banner?.imagem_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={banner.imagem_url} alt="" className="mb-3 aspect-[21/7] w-full rounded-xl object-cover" />
+        )}
+        <form action={salvarBanner} className="grid gap-3 sm:grid-cols-2">
+          <input
+            name="titulo"
+            placeholder="Título"
+            defaultValue={banner?.titulo ?? ""}
+            className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia sm:col-span-2"
+          />
+          <input
+            name="subtitulo"
+            placeholder="Subtítulo"
+            defaultValue={banner?.subtitulo ?? ""}
+            className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia sm:col-span-2"
+          />
+          <input
+            name="link"
+            placeholder="Link (opcional)"
+            defaultValue={banner?.link ?? ""}
+            className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia"
+          />
+          <input
+            name="foto"
+            type="file"
+            accept="image/*"
+            className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta file:mr-3 file:rounded-md file:border-0 file:bg-pirraia file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white outline-none"
+          />
+          <input type="hidden" name="imagem_url" value={banner?.imagem_url ?? ""} />
+          <div className="sm:col-span-2">
+            <BotaoSubmit pendingLabel="Salvando…" className="rounded-lg bg-pirraia px-4 py-2 text-sm font-bold text-white transition hover:opacity-90">
+              Salvar banner
+            </BotaoSubmit>
+          </div>
+        </form>
+      </section>
 
       {/* BOOKMARKLET do MakerWorld */}
       <section className="mb-6 rounded-2xl border border-black/10 bg-white p-5">
@@ -282,7 +354,8 @@ export default async function Admin3D({
           {lista.map((p) => {
             const post = postPorProduto.get(p.id);
             return (
-              <div key={p.id} className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white p-3 sm:flex-row">
+              <div key={p.id} className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white p-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                 {/* foto + arte */}
                 <div className="flex shrink-0 gap-3">
                   <div className="h-28 w-28 overflow-hidden rounded-xl bg-black/5">
@@ -358,6 +431,77 @@ export default async function Admin3D({
                     remover
                   </button>
                 </form>
+                </div>
+
+                {/* mídia da página do produto: galeria, cores e categoria */}
+                <div className="flex flex-col gap-3 border-t border-black/5 pt-3">
+                  {/* galeria */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-fumo">Galeria</span>
+                      <form action={adicionarFoto3D} className="flex items-center gap-2">
+                        <input type="hidden" name="produtoId" value={p.id} />
+                        <input
+                          name="foto"
+                          type="file"
+                          accept="image/*"
+                          className="text-xs text-tinta file:mr-2 file:rounded-md file:border-0 file:bg-pirraia file:px-2 file:py-1 file:text-[11px] file:font-bold file:text-white"
+                        />
+                        <BotaoSubmit pendingLabel="…" className="rounded-lg bg-pirraia px-3 py-1.5 text-xs font-bold text-white transition hover:opacity-90">
+                          + Foto
+                        </BotaoSubmit>
+                      </form>
+                    </div>
+                    {(p.fotos ?? []).length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {(p.fotos ?? []).map((u: string) => (
+                          <div key={u} className="flex flex-col items-center gap-0.5">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={u} alt="" className="h-12 w-12 rounded object-cover" />
+                            <form action={removerFoto3D}>
+                              <input type="hidden" name="produtoId" value={p.id} />
+                              <input type="hidden" name="url" value={u} />
+                              <button type="submit" className="text-[10px] text-tinta/40 hover:text-red-600">remover</button>
+                            </form>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* cores */}
+                  <form action={salvarCores3D} className="flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="produtoId" value={p.id} />
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-fumo">Cores</span>
+                    {Object.entries(PALETTE).map(([chave, cor]) => (
+                      <label key={chave} className="flex items-center gap-1 text-xs text-tinta" title={cor.label}>
+                        <input type="checkbox" name="cores" value={chave} defaultChecked={(p.cores ?? []).includes(chave)} />
+                        <span className="h-4 w-4 rounded-full border border-black/15" style={{ backgroundColor: cor.hex }} />
+                      </label>
+                    ))}
+                    <BotaoSubmit pendingLabel="…" className="rounded-lg border border-black/10 px-3 py-1.5 text-xs font-bold text-tinta hover:bg-areia/40">
+                      Salvar cores
+                    </BotaoSubmit>
+                  </form>
+
+                  {/* categoria */}
+                  <form action={definirCategoria3D} className="flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="produtoId" value={p.id} />
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-fumo">Categoria</span>
+                    <select
+                      name="categoria"
+                      defaultValue={p.categoria ?? "3D"}
+                      className="rounded-lg border border-black/10 px-2 py-1.5 text-xs text-tinta outline-none focus:border-pirraia"
+                    >
+                      {CATEGORIAS_3D.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <BotaoSubmit pendingLabel="…" className="rounded-lg border border-black/10 px-3 py-1.5 text-xs font-bold text-tinta hover:bg-areia/40">
+                      Salvar categoria
+                    </BotaoSubmit>
+                  </form>
+                </div>
               </div>
             );
           })}

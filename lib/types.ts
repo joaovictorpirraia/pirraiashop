@@ -18,4 +18,17 @@ export interface VitrineItem {
   // produto próprio (3D do dono, vendido via WhatsApp na aba /3d)
   proprio: boolean | null;
   descricao: string | null;
+  criado_em?: string | null;
+  fotos?: string[] | null;
+  cores?: string[] | null;
+  video_url?: string | null;
+}
+
+/** Linha do banner da home do /3d. */
+export interface Banner {
+  id: number;
+  imagem_url: string | null;
+  titulo: string | null;
+  subtitulo: string | null;
+  link: string | null;
 }
