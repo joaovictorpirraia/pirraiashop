@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 export function Beneficios3D() {
   return (
     <div className="mt-5 border-y border-linha bg-white">
-      <div className="mx-auto grid max-w-[1180px] grid-cols-2 gap-4 px-4 py-5 md:grid-cols-4">
+      <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-4 px-4 py-5 sm:grid-cols-3">
         <Item
           titulo="Impresso por mim"
           sub="Feito à mão, no capricho"
@@ -34,15 +34,6 @@ export function Beneficios3D() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <rect x="3" y="4" width="18" height="16" rx="2" />
               <path d="M8 2v4M16 2v4M3 9h18" />
-            </svg>
-          }
-        />
-        <Item
-          titulo="Fale com a gente"
-          sub="WhatsApp (81) 99227-4919"
-          icone={
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2a10 10 0 00-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1012 2z" />
             </svg>
           }
         />
