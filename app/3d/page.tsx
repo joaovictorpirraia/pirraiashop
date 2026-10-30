@@ -9,9 +9,8 @@ import { HeaderLoja3D } from "@/components/HeaderLoja3D";
 import { BarraAviso3D } from "@/components/BarraAviso3D";
 import { HeroBanner3D } from "@/components/HeroBanner3D";
 import { Beneficios3D } from "@/components/Beneficios3D";
-import { BannersSegmento3D } from "@/components/BannersSegmento3D";
+import { BannersPromo3D } from "@/components/BannersPromo3D";
 import { CategoriasCirculos3D } from "@/components/CategoriasCirculos3D";
-import { BannersCategoria3D } from "@/components/BannersCategoria3D";
 import { Instagram3D } from "@/components/Instagram3D";
 import { RodapeLoja3D } from "@/components/RodapeLoja3D";
 
@@ -45,16 +44,14 @@ export default async function Impressoes3D({
   // categoria vinda dos ícones/banners (/3d?cat=Natal) pré-seleciona o catálogo
   const categoriaInicial = searchParams?.cat;
 
-  // recortes (PNG transparente) de produtos reais, pra flutuar nos banners
-  const REC = "https://wxrmjkxiuflvbqspauao.supabase.co/storage/v1/object/public/criativos/3d/recortes/";
-  const heroFotos = [REC + "14.png", REC + "3.png", REC + "18.png"]; // rena, árvore, engrenagens
-  const fotosCasa = [REC + "4.png", REC + "14.png"]; // monstera, rena
-  const fotosPresente = [REC + "13.png", REC + "20.png"]; // argolas personalizadas, boneco pixel
-  const fotosFeat = {
-    Natal: REC + "5.png", // presépio
-    Sensoriais: REC + "17.png", // fidget cube
-    Colecionáveis: REC + "22.png", // capivara
-  };
+  // faixas promocionais (arte completa, texto e CTA embutidos na imagem)
+  const promoPresentear = [
+    { src: "/banners/presentear.webp", href: "/3d?cat=Brindes#catalogo", alt: "Pra presentear — brindes criativos e personalizados em 3D", w: 1843, h: 853 },
+  ];
+  const promoTemas = [
+    { src: "/banners/natal.webp", href: "/3d?cat=Natal#catalogo", alt: "Natal Pirraia — peças 3D que deixam seu Natal mais especial", w: 1586, h: 992 },
+    { src: "/banners/sensorial.webp", href: "/3d?cat=Sensoriais#catalogo", alt: "Linha Sensorial — diversão, foco e alívio do estresse", w: 2000, h: 750 },
+  ];
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -73,11 +70,11 @@ export default async function Impressoes3D({
       ) : (
         <main>
           <div className="mx-auto max-w-[1180px] px-4">
-            <HeroBanner3D banner={banner} fotos={heroFotos} />
+            <HeroBanner3D banner={banner} />
           </div>
 
           <Beneficios3D />
-          <BannersSegmento3D fotosCasa={fotosCasa} fotosPresente={fotosPresente} />
+          <BannersPromo3D banners={promoPresentear} />
           <CategoriasCirculos3D />
 
           {novidades.length > 0 && (
@@ -92,7 +89,7 @@ export default async function Impressoes3D({
             </section>
           )}
 
-          <BannersCategoria3D fotos={fotosFeat} />
+          <BannersPromo3D banners={promoTemas} />
 
           {destaques.length > 0 && (
             <section className="py-4 pt-2">
