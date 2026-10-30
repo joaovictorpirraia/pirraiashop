@@ -15,9 +15,9 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const p = await getProduto3D(params.slug);
-  if (!p) return { title: "Produto não encontrado — pirraiashop 3D" };
+  if (!p) return { title: "Produto não encontrado — Pirraia 3D" };
   return {
-    title: `${p.titulo} — pirraiashop 3D`,
+    title: `${p.titulo} — Pirraia 3D`,
     description: p.descricao ?? "Peça impressa em 3D, feita sob encomenda.",
     openGraph: { images: p.imagem_url ? [p.imagem_url] : [] },
   };

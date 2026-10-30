@@ -14,8 +14,27 @@
  */
 const GRAPH = "https://graph.facebook.com/v21.0";
 
+/** Credenciais de uma conta de Instagram (Business) pra publicar via Graph API. */
+export type IgCreds = { igUserId: string; token: string };
+
+function credsDoEnv(userIdEnv: string, tokenEnv: string): IgCreds | null {
+  const igUserId = process.env[userIdEnv];
+  const token = process.env[tokenEnv];
+  return igUserId && token ? { igUserId, token } : null;
+}
+
+/** Conta do afiliado (@pirraiashop): IG_USER_ID / IG_ACCESS_TOKEN. */
+export function credsAfiliado(): IgCreds | null {
+  return credsDoEnv("IG_USER_ID", "IG_ACCESS_TOKEN");
+}
+
+/** Conta das peças 3D (@pirraia3d): IG_USER_ID_3D / IG_ACCESS_TOKEN_3D. */
+export function credsPirraia3d(): IgCreds | null {
+  return credsDoEnv("IG_USER_ID_3D", "IG_ACCESS_TOKEN_3D");
+}
+
 export function instagramConfigurado(): boolean {
-  return Boolean(process.env.IG_USER_ID && process.env.IG_ACCESS_TOKEN);
+  return Boolean(credsAfiliado());
 }
 
 async function graphPost(path: string, params: Record<string, string>) {
@@ -66,12 +85,12 @@ export async function publicarFotoFeed(opts: {
  * deixa colocar sticker de link clicável no story automático (bloqueio da Meta) —
  * por isso a arte já traz "link na bio". image_url = JPEG público (o nosso Storage).
  */
-export async function publicarStory(opts: { imageUrl: string }): Promise<{ id: string }> {
-  const igUserId = process.env.IG_USER_ID;
-  const token = process.env.IG_ACCESS_TOKEN;
-  if (!igUserId || !token) {
-    throw new Error("Instagram não configurado (IG_USER_ID / IG_ACCESS_TOKEN)");
+export async function publicarStory(opts: { imageUrl: string; creds?: IgCreds }): Promise<{ id: string }> {
+  const creds = opts.creds ?? credsAfiliado();
+  if (!creds) {
+    throw new Error("Instagram não configurado (credenciais da conta ausentes)");
   }
+  const { igUserId, token } = creds;
   const creationId = await graphPost(`${igUserId}/media`, {
     image_url: opts.imageUrl,
     media_type: "STORIES",

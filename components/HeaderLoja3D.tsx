@@ -1,7 +1,5 @@
 import { LogoPirraia3D } from "./LogoPirraia3D";
-
-const WHATS_URL = "https://wa.me/5581992274919";
-const INSTA_URL = "https://instagram.com/pirraiashop";
+import { WHATS_URL, INSTA_URL, INSTA_HANDLE } from "@/lib/contato3d";
 
 const MENU: Array<{ rotulo: string; href: string }> = [
   { rotulo: "Início", href: "/3d" },
@@ -12,7 +10,7 @@ const MENU: Array<{ rotulo: string; href: string }> = [
 ];
 
 /**
- * Cabeçalho da loja 3D: logo + busca (leva ao catálogo) + @pirraiashop +
+ * Cabeçalho da loja 3D: logo + busca (leva ao catálogo) + @pirraia3d +
  * botão WhatsApp, com uma linha de menu abaixo. Sticky no topo.
  *
  * `ativo` marca o item de menu da página atual (ex.: "Início" na home).
@@ -65,7 +63,7 @@ export function HeaderLoja3D({ ativo = "Início" }: { ativo?: string }) {
                 <circle cx="17.5" cy="6.5" r="1" fill="currentColor" />
               </svg>
             </span>
-            @pirraiashop
+            {INSTA_HANDLE}
           </a>
           <a
             href={WHATS_URL}
@@ -97,9 +95,6 @@ export function HeaderLoja3D({ ativo = "Início" }: { ativo?: string }) {
               </a>
             );
           })}
-          <a href="/" className="ml-auto text-fumo">
-            ← Achadinhos
-          </a>
         </div>
       </nav>
     </header>

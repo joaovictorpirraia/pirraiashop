@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { postarStoryAuto } from "@/lib/stories";
-import { instagramConfigurado } from "@/lib/instagram";
+import { postarStoryAuto, type Conta } from "@/lib/stories";
+import { instagramConfigurado, credsPirraia3d } from "@/lib/instagram";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -20,7 +20,12 @@ export async function POST(request: NextRequest) {
   if (!secret || key !== secret) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
-  if (!instagramConfigurado()) {
+
+  const conta: Conta = request.nextUrl.searchParams.get("conta") === "3d" ? "3d" : "afiliado";
+  if (conta === "3d" && !credsPirraia3d()) {
+    return NextResponse.json({ ok: false, erro: "Instagram 3D não configurado (IG_USER_ID_3D/IG_ACCESS_TOKEN_3D)" });
+  }
+  if (conta === "afiliado" && !instagramConfigurado()) {
     return NextResponse.json({ ok: false, erro: "Instagram não configurado (IG_USER_ID/IG_ACCESS_TOKEN)" });
   }
 
@@ -29,22 +34,22 @@ export async function POST(request: NextRequest) {
   const supabase = supabaseAdmin();
 
   try {
-    const res = await postarStoryAuto(supabase, qtd);
+    const res = await postarStoryAuto(supabase, qtd, conta);
     await supabase.from("execucoes").insert({
       job: "story_auto",
       ok: res.erros === 0,
       itens: res.postados,
-      detalhe: { origem: "cron", ...res },
+      detalhe: { origem: "cron", conta, ...res },
       duracao_ms: Date.now() - inicio,
     });
-    return NextResponse.json({ ok: res.erros === 0, ...res });
+    return NextResponse.json({ ok: res.erros === 0, conta, ...res });
   } catch (e) {
     const msg = (e as Error).message;
     await supabase.from("execucoes").insert({
       job: "story_auto",
       ok: false,
       itens: 0,
-      detalhe: { origem: "cron", erro: msg },
+      detalhe: { origem: "cron", conta, erro: msg },
       duracao_ms: Date.now() - inicio,
     });
     return NextResponse.json({ ok: false, erro: msg });

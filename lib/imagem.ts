@@ -47,6 +47,9 @@ export async function imgDataUri(url?: string | null): Promise<string> {
         "user-agent": "Mozilla/5.0 (compatible; pirraiashop/1.0)",
       },
       redirect: "follow",
+      // sem cache de dados do Next: imagens de produto passam de 2MB (PNGs 3D) e o
+      // data cache recusa acima disso, o que derrubava a geração da arte.
+      cache: "no-store",
     });
     if (!resp.ok) return alvo;
     const ct = resp.headers.get("content-type") || "image/jpeg";
