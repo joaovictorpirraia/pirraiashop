@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 
-/** Faixa de benefícios (4 colunas no desktop, 2 no mobile). */
+/** Faixa de benefícios: carrossel deslizável no celular, 3 colunas no desktop. */
 export function Beneficios3D() {
   return (
     <div className="mt-5 border-y border-linha bg-white">
-      <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-4 px-4 py-5 sm:grid-cols-3">
+      <div className="mx-auto max-w-[1180px] px-4 py-5">
+        <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0">
         <Item
           titulo="Impresso por mim"
           sub="Feito à mão, no capricho"
@@ -37,6 +38,7 @@ export function Beneficios3D() {
             </svg>
           }
         />
+        </div>
       </div>
     </div>
   );
@@ -44,7 +46,7 @@ export function Beneficios3D() {
 
 function Item({ titulo, sub, icone }: { titulo: string; sub: string; icone: ReactNode }) {
   return (
-    <div className="flex items-center justify-center gap-3 text-left">
+    <div className="flex min-w-[72%] shrink-0 snap-start items-center justify-center gap-3 sm:min-w-0">
       <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-xl bg-laranja-tint text-laranja [&>svg]:h-[22px] [&>svg]:w-[22px]">
         {icone}
       </span>
