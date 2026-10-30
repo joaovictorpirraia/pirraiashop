@@ -87,8 +87,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             style={{
               display: "flex",
               position: "absolute",
-              top: 28,
-              left: 28,
+              // 3D: acima da foto pra não cobrir a peça; afiliado: sobre a foto (sticker)
+              top: is3d ? -74 : 28,
+              left: is3d ? 0 : 28,
               background: tema.seloBg,
               color: "#fff",
               fontSize: 34,
