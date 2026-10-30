@@ -1,7 +1,5 @@
 import { LogoPirraia3D } from "./LogoPirraia3D";
-
-const WHATS_URL = "https://wa.me/5581992274919";
-const INSTA_URL = "https://instagram.com/pirraiashop";
+import { WHATS_URL, INSTA_URL, INSTA_HANDLE } from "@/lib/contato3d";
 
 const CATEGORIAS: Array<{ rotulo: string; href: string }> = [
   { rotulo: "Natal", href: "/3d?cat=Natal#catalogo" },
@@ -67,7 +65,7 @@ export function RodapeLoja3D() {
             </li>
             <li>
               <a href={INSTA_URL} target="_blank" rel="noopener noreferrer">
-                @pirraiashop no Instagram
+                {INSTA_HANDLE} no Instagram
               </a>
             </li>
           </ul>
@@ -76,7 +74,7 @@ export function RodapeLoja3D() {
 
       <div className="border-t border-white/10 text-xs text-[#8E877F]">
         <div className="mx-auto max-w-[1180px] px-4 py-4">
-          pirraiashop.com.br · Impressões 3D · 2026 — Peças sob encomenda, pagamento combinado no
+          Pirraia 3D · Impressões 3D · 2026 — Peças sob encomenda, pagamento combinado no
           WhatsApp.
         </div>
       </div>
