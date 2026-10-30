@@ -17,6 +17,23 @@ import { RodapeLoja3D } from "@/components/RodapeLoja3D";
 
 export const dynamic = "force-dynamic";
 
+/** Prateleira (carrossel) de uma categoria, logo abaixo da faixa do tema. */
+function SecaoProdutos({ itens, verHref }: { itens: VitrineItem[]; verHref: string }) {
+  if (itens.length === 0) return null;
+  return (
+    <section className="py-3">
+      <div className="mx-auto max-w-[1180px] px-4">
+        <Carrossel3D titulo="" itens={itens} />
+        <div className="text-center">
+          <a href={verHref} className="text-sm font-semibold text-laranja">
+            Ver todos →
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export const metadata: Metadata = {
   title: "Pirraia 3D — peças impressas por mim",
   description: "Peças impressas em 3D, feitas e entregues por mim. Encomende no WhatsApp.",
@@ -41,19 +58,23 @@ export default async function Impressoes3D({
     .filter((i) => i.criado_em)
     .sort((a, b) => (b.criado_em! > a.criado_em! ? 1 : -1))
     .slice(0, 10);
-  const destaques = itens.filter((i) => i.destaque).slice(0, 10);
 
   // categoria vinda dos ícones/banners (/3d?cat=Natal) pré-seleciona o catálogo
   const categoriaInicial = searchParams?.cat;
 
-  // faixas promocionais (arte completa, texto e CTA embutidos na imagem)
-  const promoPresentear = [
-    { src: "/banners/presentear.webp", href: "/3d?cat=Brindes#catalogo", alt: "Pra presentear — brindes criativos e personalizados em 3D", w: 1843, h: 853 },
-  ];
-  const promoTemas = [
-    { src: "/banners/natal.webp", href: "/3d?cat=Natal#catalogo", alt: "Natal Pirraia — peças 3D que deixam seu Natal mais especial", w: 1586, h: 992 },
-    { src: "/banners/sensorial.webp", href: "/3d?cat=Sensoriais#catalogo", alt: "Linha Sensorial — diversão, foco e alívio do estresse", w: 2000, h: 750 },
-  ];
+  // produtos por categoria (a faixa do tema + a prateleira logo abaixo)
+  const porCat = (cat: string, n = 12) => itens.filter((i) => i.categoria === cat).slice(0, n);
+  const natal = porCat("Natal");
+  const sensoriais = porCat("Sensoriais");
+  const brindes = porCat("Brindes");
+
+  // "Todas as peças" em ordem alfabética
+  const todas = [...itens].sort((a, b) => a.titulo.localeCompare(b.titulo, "pt"));
+
+  // faixas promocionais (arte completa, texto e CTA embutidos) — uma por tema
+  const bannerNatal = [{ src: "/banners/natal.webp", href: "/3d?cat=Natal#catalogo", alt: "Natal Pirraia — peças 3D que deixam seu Natal mais especial", w: 1586, h: 992 }];
+  const bannerSensorial = [{ src: "/banners/sensorial.webp", href: "/3d?cat=Sensoriais#catalogo", alt: "Linha Sensorial — diversão, foco e alívio do estresse", w: 2000, h: 750 }];
+  const bannerPresentear = [{ src: "/banners/presentear.webp", href: "/3d?cat=Brindes#catalogo", alt: "Pra presentear — brindes criativos e personalizados em 3D", w: 1843, h: 853 }];
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -76,8 +97,6 @@ export default async function Impressoes3D({
           </div>
 
           <Beneficios3D />
-          <BannersPromo3D banners={promoPresentear} />
-          <CategoriasCirculos3D />
 
           {novidades.length > 0 && (
             <section id="novidades" className="scroll-mt-28 py-4 pt-2">
@@ -91,31 +110,28 @@ export default async function Impressoes3D({
             </section>
           )}
 
-          <BannersPromo3D banners={promoTemas} />
+          <CategoriasCirculos3D />
 
-          {destaques.length > 0 && (
-            <section className="py-4 pt-2">
-              <div className="mx-auto max-w-[1180px] px-4">
-                <div className="mb-5 text-center">
-                  <h2 className="font-display text-[26px] font-semibold">Destaques</h2>
-                  <p className="mt-1.5 text-fumo">As queridinhas da loja</p>
-                </div>
-                <Carrossel3D titulo="" itens={destaques} />
-              </div>
-            </section>
-          )}
+          <BannersPromo3D banners={bannerNatal} />
+          <SecaoProdutos itens={natal} verHref="/3d?cat=Natal#catalogo" />
 
-          <Instagram3D midias={midiasIG} />
+          <BannersPromo3D banners={bannerSensorial} />
+          <SecaoProdutos itens={sensoriais} verHref="/3d?cat=Sensoriais#catalogo" />
+
+          <BannersPromo3D banners={bannerPresentear} />
+          <SecaoProdutos itens={brindes} verHref="/3d?cat=Brindes#catalogo" />
 
           <section id="catalogo" className="scroll-mt-28 py-10">
             <div className="mx-auto max-w-[1180px] px-4">
               <div className="mb-5 text-center">
                 <h2 className="font-display text-[26px] font-semibold">Todas as peças</h2>
-                <p className="mt-1.5 text-fumo">Busca e filtra por categoria</p>
+                <p className="mt-1.5 text-fumo">Em ordem alfabética — busca e filtra por categoria</p>
               </div>
-              <Grade itens={itens} categoriaInicial={categoriaInicial} />
+              <Grade itens={todas} categoriaInicial={categoriaInicial} />
             </div>
           </section>
+
+          <Instagram3D midias={midiasIG} />
         </main>
       )}
 
