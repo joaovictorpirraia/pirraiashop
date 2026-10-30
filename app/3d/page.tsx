@@ -12,6 +12,7 @@ import { Beneficios3D } from "@/components/Beneficios3D";
 import { BannersPromo3D } from "@/components/BannersPromo3D";
 import { CategoriasCirculos3D } from "@/components/CategoriasCirculos3D";
 import { Instagram3D } from "@/components/Instagram3D";
+import { ultimasMidias3D } from "@/lib/instagramFeed";
 import { RodapeLoja3D } from "@/components/RodapeLoja3D";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,7 @@ export default async function Impressoes3D({
   const itens = data ?? [];
 
   const banner = await bannerAtivo();
+  const midiasIG = await ultimasMidias3D(6);
   const novidades = [...itens]
     .filter((i) => i.criado_em)
     .sort((a, b) => (b.criado_em! > a.criado_em! ? 1 : -1))
@@ -103,7 +105,7 @@ export default async function Impressoes3D({
             </section>
           )}
 
-          <Instagram3D />
+          <Instagram3D midias={midiasIG} />
 
           <section id="catalogo" className="scroll-mt-28 py-10">
             <div className="mx-auto max-w-[1180px] px-4">

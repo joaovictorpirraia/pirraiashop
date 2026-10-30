@@ -27,9 +27,29 @@ function brl(n: number): string {
   return `R$ ${n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   const id = Number(params.id);
   if (!id) return new NextResponse("id inválido", { status: 400 });
+
+  // tema por conta: afiliado (ACHADINHO) x @pirraia3d (PIRRAIA 3D / sob encomenda)
+  const is3d = new URL(req.url).searchParams.get("conta") === "3d";
+  const tema = is3d
+    ? {
+        selo: "PIRRAIA 3D",
+        seloBg: "#F26A1C",
+        cta: "sob encomenda · no link da bio",
+        sufixoMarca: "/3d",
+        ponto: "#F26A1C",
+        arquivo: `story-3d-${id}.jpg`,
+      }
+    : {
+        selo: "ACHADINHO",
+        seloBg: "#e11d74",
+        cta: "no link da bio → pesquisa o nome",
+        sufixoMarca: "",
+        ponto: "#e11d74",
+        arquivo: `story-${id}.jpg`,
+      };
 
   const supabase = supabaseAdmin();
   const { data: p } = await supabase
@@ -69,7 +89,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
               position: "absolute",
               top: 28,
               left: 28,
-              background: "#e11d74",
+              background: tema.seloBg,
               color: "#fff",
               fontSize: 34,
               fontWeight: 900,
@@ -78,7 +98,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
               borderRadius: 999,
             }}
           >
-            ACHADINHO
+            {tema.selo}
           </div>
         </div>
 
@@ -112,10 +132,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
               borderRadius: 999,
             }}
           >
-            no link da bio → pesquisa o nome
+            {tema.cta}
           </div>
           <div style={{ display: "flex", fontSize: 30, fontWeight: 700, color: "#a89b90", marginTop: 24 }}>
-            pirraiashop<span style={{ color: "#e11d74" }}>.</span>com.br
+            pirraiashop<span style={{ color: tema.ponto }}>.</span>com.br{tema.sufixoMarca}
           </div>
         </div>
       </div>
@@ -128,7 +148,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const png = PNG.sync.read(Buffer.from(await resp.arrayBuffer()));
   const bytes = encodeJpeg({ data: png.data, width: png.width, height: png.height }, 80).data;
-  const caminho = `story-${id}.jpg`;
+  const caminho = tema.arquivo;
   const publicUrl = supabase.storage.from("criativos").getPublicUrl(caminho).data.publicUrl;
   try {
     await supabase.storage.from("criativos").upload(caminho, bytes, { contentType: "image/jpeg", upsert: true });
