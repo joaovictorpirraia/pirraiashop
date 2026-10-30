@@ -81,7 +81,7 @@ export function HeaderLoja3D({ ativo = "Início" }: { ativo?: string }) {
       </div>
 
       <nav className="border-t border-linha">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2.5 text-[13.5px] font-semibold uppercase tracking-wide">
+        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2.5 text-[13.5px] font-semibold uppercase tracking-wide">
           {MENU.map((item) => {
             const externo = item.href.startsWith("http");
             return (

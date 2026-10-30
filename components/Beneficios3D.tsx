@@ -44,7 +44,7 @@ export function Beneficios3D() {
 
 function Item({ titulo, sub, icone }: { titulo: string; sub: string; icone: ReactNode }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center justify-center gap-3 text-left">
       <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-xl bg-laranja-tint text-laranja [&>svg]:h-[22px] [&>svg]:w-[22px]">
         {icone}
       </span>
