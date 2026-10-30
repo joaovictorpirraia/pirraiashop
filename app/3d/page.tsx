@@ -72,9 +72,9 @@ export default async function Impressoes3D({
   const todas = [...itens].sort((a, b) => a.titulo.localeCompare(b.titulo, "pt"));
 
   // faixas promocionais (arte completa, texto e CTA embutidos) — uma por tema
-  const bannerNatal = [{ src: "/banners/natal.webp", href: "/3d?cat=Natal#catalogo", alt: "Natal Pirraia — peças 3D que deixam seu Natal mais especial", w: 1586, h: 992 }];
-  const bannerSensorial = [{ src: "/banners/sensorial.webp", href: "/3d?cat=Sensoriais#catalogo", alt: "Linha Sensorial — diversão, foco e alívio do estresse", w: 2000, h: 750 }];
-  const bannerPresentear = [{ src: "/banners/presentear.webp", href: "/3d?cat=Brindes#catalogo", alt: "Pra presentear — brindes criativos e personalizados em 3D", w: 1843, h: 853 }];
+  const bannerNatal = [{ src: "/banners/natal.webp", href: "/3d?cat=Natal#catalogo", alt: "Natal Pirraia — peças 3D feitas por mim", w: 1842, h: 854 }];
+  const bannerSensorial = [{ src: "/banners/sensorial.webp", href: "/3d?cat=Sensoriais#catalogo", alt: "Linha Sensorial — peças 3D que estimulam a criatividade e o bem-estar", w: 1842, h: 854 }];
+  const bannerPresentear = [{ src: "/banners/presentear.webp", href: "/3d?cat=Brindes#catalogo", alt: "Brindes personalizados — peças 3D feitas por mim", w: 1843, h: 853 }];
 
   return (
     <div className="min-h-screen overflow-x-hidden">
