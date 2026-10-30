@@ -2,101 +2,28 @@ import Image from "next/image";
 import type { Banner } from "@/lib/types";
 
 /**
- * Hero da loja 3D. Se houver um banner cadastrado (com imagem), mostra a arte
- * com overlay e CTA. Sem banner, cai no hero laranja da marca com um cluster
- * de produtos flutuando à direita (`fotos`). O CTA leva ao catálogo (#catalogo).
+ * Hero da loja 3D. Mostra uma arte de banner cheia (texto, CTA e produtos já
+ * embutidos na imagem), clicável, levando ao catálogo. Se houver um banner
+ * cadastrado no admin (com imagem), ele tem prioridade; senão usa a arte padrão.
  */
-export function HeroBanner3D({
-  banner,
-  fotos = [],
-}: {
-  banner?: Banner | null;
-  fotos?: string[];
-}) {
-  if (banner?.imagem_url) {
-    return (
-      <div className="pb-1.5 pt-4">
-        <a
-          href={banner.link ?? "/3d#catalogo"}
-          className="relative flex min-h-[300px] items-end overflow-hidden rounded-[20px] bg-grafite"
-        >
-          <Image
-            src={banner.imagem_url}
-            alt={banner.titulo ?? "Loja 3D"}
-            fill
-            sizes="(max-width: 1180px) 100vw, 1180px"
-            className="object-cover"
-            priority
-          />
-          {(banner.titulo || banner.subtitulo) && (
-            <div className="relative z-10 bg-gradient-to-t from-black/55 to-transparent p-9 text-white">
-              {banner.titulo && (
-                <h1 className="font-display text-3xl font-semibold sm:text-4xl">{banner.titulo}</h1>
-              )}
-              {banner.subtitulo && <p className="mt-2 max-w-[40ch] opacity-95">{banner.subtitulo}</p>}
-            </div>
-          )}
-        </a>
-      </div>
-    );
-  }
-
-  const cluster = fotos.slice(0, 3);
-  // posição/rotação de cada recorte do cluster (desktop)
-  const cards = [
-    "left-[130px] top-1/2 h-[250px] w-[200px] -translate-y-1/2 rotate-[-4deg] z-20",
-    "left-[6px] top-[6px] h-[150px] w-[150px] rotate-[7deg] z-10",
-    "right-[0px] bottom-[2px] h-[170px] w-[180px] rotate-[-9deg] z-10",
-  ];
+export function HeroBanner3D({ banner }: { banner?: Banner | null }) {
+  const src = banner?.imagem_url ?? "/banners/hero.webp";
+  const href = banner?.link ?? "#catalogo";
+  const alt = banner?.titulo ?? "Pirraia 3D — peças 3D feitas por mim";
 
   return (
     <div className="pb-1.5 pt-4">
-      <div
-        className="relative flex min-h-[320px] items-center overflow-hidden rounded-[20px] text-white"
-        style={{
-          background:
-            "radial-gradient(120% 140% at 12% 20%, #FFB874 0%, #F26A1C 42%, #D4540A 100%)",
-        }}
-      >
-        <div className="relative z-10 max-w-[560px] px-6 py-10 sm:px-12 sm:py-12">
-          <span className="text-xs font-bold uppercase tracking-[2px] opacity-90">
-            Impressão 3D autoral
-          </span>
-          <h1 className="mb-3.5 mt-2.5 font-display text-[clamp(28px,5vw,46px)] font-semibold leading-[1.02]">
-            Peças 3D feitas por mim, do seu jeito.
-          </h1>
-          <p className="mb-5 max-w-[40ch] text-base opacity-95">
-            Escolhe a peça e a cor, chama no WhatsApp e a gente fecha a encomenda.
-          </p>
-          <a
-            href="#catalogo"
-            className="inline-block rounded-full bg-grafite px-7 py-3 font-display text-[15px] font-semibold text-white"
-          >
-            Ver a loja
-          </a>
-        </div>
-
-        {cluster.length > 0 ? (
-          <div className="pointer-events-none absolute right-8 top-1/2 hidden h-[270px] w-[430px] -translate-y-1/2 lg:block">
-            {cluster.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={src}
-                src={src}
-                alt=""
-                className={`absolute object-contain drop-shadow-[0_18px_26px_rgba(0,0,0,.4)] ${cards[i]}`}
-              />
-            ))}
-          </div>
-        ) : (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -bottom-[14%] -right-[6%] hidden font-display text-[230px] font-semibold leading-[0.8] text-white/10 md:block"
-          >
-            3D
-          </span>
-        )}
-      </div>
+      <a href={href} className="block overflow-hidden rounded-[20px]">
+        <Image
+          src={src}
+          alt={alt}
+          width={2000}
+          height={750}
+          sizes="(max-width: 1180px) 100vw, 1180px"
+          className="h-auto w-full"
+          priority
+        />
+      </a>
     </div>
   );
 }
