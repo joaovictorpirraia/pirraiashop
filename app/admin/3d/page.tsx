@@ -7,6 +7,7 @@ import { bannerAtivo } from "@/lib/banner";
 import { PALETTE } from "@/lib/cores";
 import {
   adicionarProduto3D,
+  editarProduto3D,
   removerProduto3D,
   gerarLegenda3D,
   salvarLegenda3D,
@@ -48,6 +49,7 @@ interface Prod3D {
   id: number;
   titulo: string;
   preco: string | number | null;
+  preco_antigo: string | number | null;
   imagem_url: string | null;
   descricao: string | null;
   fotos: string[] | null;
@@ -89,7 +91,7 @@ export default async function Admin3D({
   const supabase = supabaseAdmin();
   const { data } = await supabase
     .from("links")
-    .select("slug, produto:produtos!inner(id, titulo, preco, imagem_url, descricao, fotos, cores, categoria, proprio, status)")
+    .select("slug, produto:produtos!inner(id, titulo, preco, preco_antigo, imagem_url, descricao, fotos, cores, categoria, proprio, status)")
     .eq("ativo", true)
     .limit(300);
 
@@ -433,8 +435,50 @@ export default async function Admin3D({
                 </form>
                 </div>
 
-                {/* mídia da página do produto: galeria, cores e categoria */}
+                {/* mídia da página do produto: editar, galeria, cores e categoria */}
                 <div className="flex flex-col gap-3 border-t border-black/5 pt-3">
+                  {/* editar campos (título, preço, preço antigo, descrição, capa) */}
+                  <details className="rounded-xl border border-black/10 bg-areia/30">
+                    <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-fumo">
+                      Editar peça (título, preço, descrição, capa)
+                    </summary>
+                    <form action={editarProduto3D} className="grid gap-3 border-t border-black/5 p-3 sm:grid-cols-2">
+                      <input type="hidden" name="produtoId" value={p.id} />
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-fumo sm:col-span-2">
+                        Nome da peça
+                        <input name="titulo" required defaultValue={p.titulo} className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-fumo">
+                        Preço (R$)
+                        <input name="preco" required type="number" step="0.01" min="0" defaultValue={p.preco != null ? String(p.preco) : ""} className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-fumo">
+                        Preço antigo (opcional)
+                        <input name="preco_antigo" type="number" step="0.01" min="0" defaultValue={p.preco_antigo != null ? String(p.preco_antigo) : ""} placeholder="vira selo de desconto" className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-fumo sm:col-span-2">
+                        Descrição
+                        <textarea name="descricao" rows={2} defaultValue={p.descricao ?? ""} placeholder="material, cores, prazo…" className="resize-y rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-fumo">
+                        Trocar capa (foto do PC)
+                        <input name="foto" type="file" accept="image/*" className="rounded-lg border border-black/10 px-3 py-2 text-xs text-tinta file:mr-3 file:rounded-md file:border-0 file:bg-pirraia file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white outline-none" />
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs font-semibold text-fumo">
+                        …ou URL da capa
+                        <input name="imagem_url" defaultValue={p.imagem_url ?? ""} placeholder="https://..." className="rounded-lg border border-black/10 px-3 py-2 text-sm text-tinta outline-none focus:border-pirraia" />
+                      </label>
+                      <p className="text-[11px] text-fumo sm:col-span-2">
+                        Em branco (foto e URL) mantém a capa atual. Preço antigo maior que o preço gera o selo de desconto.
+                      </p>
+                      <div className="sm:col-span-2">
+                        <BotaoSubmit pendingLabel="Salvando…" className="rounded-lg bg-pirraia px-5 py-2 text-sm font-bold text-white transition hover:opacity-90">
+                          Salvar alterações
+                        </BotaoSubmit>
+                      </div>
+                    </form>
+                  </details>
+
                   {/* galeria */}
                   <div className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">

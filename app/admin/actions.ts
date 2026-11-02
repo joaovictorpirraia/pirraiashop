@@ -1881,6 +1881,68 @@ export async function removerProduto3D(formData: FormData) {
 }
 
 /**
+ * Edita os campos centrais de uma peça 3D já na /3d: título, preço, preço antigo
+ * (calcula o desconto), descrição e a capa (upload do PC ou URL colada; em branco
+ * mantém a atual). Como a mensagem de encomenda do WhatsApp embute o título, o
+ * short_url do link é regerado com o novo nome. Mesmo duck-typing de File das
+ * outras actions (File não é global no Node 18 do EasyPanel).
+ */
+export async function editarProduto3D(formData: FormData) {
+  const produtoId = Number(formData.get("produtoId"));
+  const titulo = String(formData.get("titulo") ?? "").trim();
+  const preco = Number(formData.get("preco"));
+  const precoAntigoRaw = String(formData.get("preco_antigo") ?? "").trim();
+  const precoAntigo = precoAntigoRaw ? Number(precoAntigoRaw) : null;
+  const descricao = String(formData.get("descricao") ?? "").trim() || null;
+
+  const supabase = supabaseAdmin();
+
+  // capa: upload do PC tem prioridade; senão a URL colada; em branco mantém a atual
+  let imagemUrl = String(formData.get("imagem_url") ?? "").trim();
+  const foto = formData.get("foto");
+  if (foto && typeof foto !== "string" && foto.size > 0) {
+    if (!foto.type.startsWith("image/") || foto.size > 8 * 1024 * 1024) {
+      redirect("/admin/3d?erro=1"); // não é imagem ou passou de 8 MB
+    }
+    const ext = (foto.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const caminho = `3d/${Date.now()}-${slugify(titulo) || "peca"}.${ext}`;
+    const bytes = Buffer.from(await foto.arrayBuffer());
+    const { error: upErr } = await supabase.storage
+      .from("criativos")
+      .upload(caminho, bytes, { contentType: foto.type, upsert: true });
+    if (upErr) {
+      console.error("[admin] upload capa 3D:", upErr.message);
+      redirect("/admin/3d?erro=1");
+    }
+    imagemUrl = supabase.storage.from("criativos").getPublicUrl(caminho).data.publicUrl;
+  }
+
+  if (!produtoId || !titulo || !Number.isFinite(preco) || preco <= 0 || !imagemUrl || !/^https?:\/\//i.test(imagemUrl)) {
+    redirect("/admin/3d?erro=1");
+  }
+
+  const desconto = precoAntigo && precoAntigo > preco ? Math.round((1 - preco / precoAntigo) * 100) : null;
+
+  await supabase
+    .from("produtos")
+    .update({ titulo, preco, preco_antigo: precoAntigo, desconto_pct: desconto, descricao, imagem_url: imagemUrl })
+    .eq("id", produtoId);
+
+  // a mensagem de encomenda do WhatsApp embute o título → regera com o novo nome
+  const { data: link } = await supabase.from("links").select("id").eq("produto_id", produtoId).eq("ativo", true).maybeSingle();
+  if (link) {
+    const msg = `Oi! Quero encomendar em 3D: ${titulo}. Vim pelo pirraiashop.`;
+    const shortUrl = `https://wa.me/${whatsappNumero()}?text=${encodeURIComponent(msg)}`;
+    await supabase.from("links").update({ short_url: shortUrl }).eq("id", link.id);
+  }
+
+  revalidatePath("/admin/3d");
+  revalidatePath("/3d");
+  revalidatePath("/");
+  redirect("/admin/3d?ok=1");
+}
+
+/**
  * Gera (ou regenera) a legenda de Instagram de uma peça 3D com a IA e salva como
  * rascunho no canal 'instagram_3d' (1 por produto). Framing de encomenda/WhatsApp,
  * não de achadinho. O dono revisa/edita antes de publicar.
