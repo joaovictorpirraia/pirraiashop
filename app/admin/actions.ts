@@ -7,7 +7,7 @@ import { slugify } from "@/lib/slug";
 import { reordenarVitrine } from "@/lib/ranking";
 import { pontuarPendentes, classificarCategoria, categorizarProdutos } from "@/lib/curadoria";
 import { gerarConteudo, salvarRascunho, gerarLegenda3D as gerarLegenda3DIA, type ProdutoParaConteudo } from "@/lib/conteudo";
-import { publicarCarrossel as publicarCarrosselIG, publicarCarrosselVideo, publicarReel, publicarFotoFeed, instagramConfigurado } from "@/lib/instagram";
+import { publicarCarrossel as publicarCarrosselIG, publicarCarrosselVideo, publicarReel, publicarFotoFeed, instagramConfigurado, credsPirraia3d } from "@/lib/instagram";
 import { inserirRascunhoCarrossel, montarRascunhoAuto, curarProdutosParaVitrine } from "@/lib/carrossel";
 import { rodarLoopDiario } from "@/lib/loop";
 import { postarStoryAuto } from "@/lib/stories";
@@ -1945,7 +1945,8 @@ export async function salvarLegenda3D(formData: FormData) {
  * legenda do rascunho. Marca 'publicado' e loga em execucoes. Gated em IG_*.
  */
 export async function publicarNoFeed3D(formData: FormData) {
-  if (!instagramConfigurado()) throw new Error("Instagram não configurado no servidor");
+  const creds3d = credsPirraia3d();
+  if (!creds3d) throw new Error("Instagram 3D não configurado (IG_USER_ID_3D / IG_ACCESS_TOKEN_3D)");
   const postId = Number(formData.get("postId"));
   const produtoId = Number(formData.get("produtoId"));
   if (!postId || !produtoId) return;
@@ -1959,7 +1960,7 @@ export async function publicarNoFeed3D(formData: FormData) {
   const imageUrl = `${site}/api/criativo3d/${produtoId}`;
 
   try {
-    const res = await publicarFotoFeed({ imageUrl, caption });
+    const res = await publicarFotoFeed({ imageUrl, caption, creds: creds3d });
     await supabase.from("posts").update({ status: "publicado", publicado_em: new Date().toISOString() }).eq("id", postId);
     await supabase.from("execucoes").insert({
       job: "publicar_ig_3d",

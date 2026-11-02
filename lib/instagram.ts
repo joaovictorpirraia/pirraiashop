@@ -57,12 +57,13 @@ async function graphPost(path: string, params: Record<string, string>) {
 export async function publicarFotoFeed(opts: {
   imageUrl: string;
   caption: string;
+  creds?: IgCreds;
 }): Promise<{ id: string }> {
-  const igUserId = process.env.IG_USER_ID;
-  const token = process.env.IG_ACCESS_TOKEN;
-  if (!igUserId || !token) {
-    throw new Error("Instagram não configurado (IG_USER_ID / IG_ACCESS_TOKEN)");
+  const creds = opts.creds ?? credsAfiliado();
+  if (!creds) {
+    throw new Error("Instagram não configurado (credenciais da conta ausentes)");
   }
+  const { igUserId, token } = creds;
 
   // 1. container de mídia
   const creationId = await graphPost(`${igUserId}/media`, {
